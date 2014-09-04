@@ -42,7 +42,14 @@
 
 #include "precomp.hpp"
 
-#if 0
+#if 1
+
+#if (defined (HAVE_CUDA) && defined (HAVE_OPENCV_CUDAARITHM))
+#include "vector_types.h"
+#include "opencv2/core/cuda.hpp"
+#include "opencv2/core/cuda/common.hpp"
+#include "opencv2/xfeatures2d/cuda.hpp"
+#endif
 
 using namespace cv;
 using namespace cv::cuda;
