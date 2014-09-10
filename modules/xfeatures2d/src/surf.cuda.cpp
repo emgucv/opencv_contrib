@@ -55,7 +55,7 @@ using namespace cv;
 using namespace cv::cuda;
 
 #if (!defined (HAVE_CUDA) || !defined (HAVE_OPENCV_CUDAARITHM))
-
+/*
 cv::cuda::SURF_CUDA::SURF_CUDA() { throw_no_cuda(); }
 cv::cuda::SURF_CUDA::SURF_CUDA(double, int, int, bool, float, bool) { throw_no_cuda(); }
 int cv::cuda::SURF_CUDA::descriptorSize() const { throw_no_cuda(); return 0;}
@@ -68,7 +68,7 @@ void cv::cuda::SURF_CUDA::operator()(const GpuMat&, const GpuMat&, std::vector<K
 void cv::cuda::SURF_CUDA::operator()(const GpuMat&, const GpuMat&, std::vector<KeyPoint>&, GpuMat&, bool) { throw_no_cuda(); }
 void cv::cuda::SURF_CUDA::operator()(const GpuMat&, const GpuMat&, std::vector<KeyPoint>&, std::vector<float>&, bool) { throw_no_cuda(); }
 void cv::cuda::SURF_CUDA::releaseMemory() { throw_no_cuda(); }
-
+*/
 #else // !defined (HAVE_CUDA)
 
 namespace cv { namespace cuda { namespace device
