@@ -21,8 +21,11 @@
 #  include "opencv2/nonfree/ocl.hpp"
 #endif
 
-#ifdef HAVE_CUDA
-#  include "opencv2/nonfree/cuda.hpp"
+#if (defined (HAVE_CUDA) && defined (HAVE_OPENCV_CUDAARITHM))
+#include "vector_types.h"
+#include "opencv2/core/cuda.hpp"
+#include "opencv2/core/cuda/common.hpp"
+#include "opencv2/xfeatures2d/cuda.hpp"
 #endif
 
 #ifdef GTEST_CREATE_SHARED_LIBRARY
