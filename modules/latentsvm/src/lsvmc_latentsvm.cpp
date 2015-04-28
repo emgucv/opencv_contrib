@@ -669,7 +669,7 @@ int showRootFilterBoxes(IplImage *image,
                     color, thickness, line_type, shift);
     }
 #ifdef HAVE_OPENCV_HIGHGUI
-    cvShowImage("Initial image", image);
+//    cvShowImage("Initial image", image);
 #endif
     return LATENT_SVM_OK;
 }
@@ -725,7 +725,7 @@ int showPartFilterBoxes(IplImage *image,
         }
     }
 #ifdef HAVE_OPENCV_HIGHGUI
-    cvShowImage("Initial image", image);
+    //cvShowImage("Initial image", image);
 #endif
     return LATENT_SVM_OK;
 }
@@ -761,7 +761,7 @@ int showBoxes(IplImage *img,
                     color, thickness, line_type, shift);
     }
 #ifdef HAVE_OPENCV_HIGHGUI
-    cvShowImage("Initial image", img);
+//    cvShowImage("Initial image", img);
 #endif
     return LATENT_SVM_OK;
 }
