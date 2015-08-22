@@ -272,7 +272,7 @@ private:
                 unsigned long long int key = 0;
                 for (size_t j=0; j<child.size(); j++)
                 {
-                    key += (unsigned long long int)pow(2,oversegmentation.size()-(oversegmentation.end()-find(oversegmentation.begin(), oversegmentation.end(), child[j])));
+                    key += (unsigned long long int)pow((double)2,(double)(oversegmentation.size()-(oversegmentation.end()-find(oversegmentation.begin(), oversegmentation.end(), child[j]))));
                 }
                 //if (!visited_nodes[key])
                 if (visited_nodes.find(key) == visited_nodes.end())
