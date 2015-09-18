@@ -45,7 +45,7 @@
 
 #include "precomp.hpp"
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
 # define popcnt(A) std::bitset<32>(A).count()
 #else
