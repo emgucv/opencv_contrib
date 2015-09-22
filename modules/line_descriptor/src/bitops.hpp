@@ -46,7 +46,9 @@
 #include "precomp.hpp"
 
 #ifdef _MSC_VER
-#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
+#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP 
+# define popcnt(A) std::bitset<32>(A).count()
+#elif __ICL //Windows version of intel compiler
 # define popcnt(A) std::bitset<32>(A).count()
 #else
 # include <intrin.h>
