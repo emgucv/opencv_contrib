@@ -28,6 +28,10 @@ set_target_properties(${the_target} PROPERTIES
                       INSTALL_NAME_DIR lib
                       OUTPUT_NAME ${the_target})
 
+IF(DEFINED EMGUCV_PLATFORM_TOOLSET)
+  set_target_properties(${the_target} PROPERTIES PLATFORM_TOOLSET ${EMGUCV_PLATFORM_TOOLSET})
+ENDIF()
+
 if(ENABLE_SOLUTION_FOLDERS)
   set_target_properties(${the_target} PROPERTIES FOLDER "applications")
 endif()
