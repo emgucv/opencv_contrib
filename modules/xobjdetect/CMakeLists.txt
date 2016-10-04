@@ -1,5 +1,5 @@
 set(the_description "Object detection algorithms")
 ocv_define_module(xobjdetect opencv_core opencv_imgproc opencv_highgui opencv_objdetect WRAP python)
-if (NOT (IOS OR WINRT))
+if (NOT (APPLE_FRAMEWORK OR WINRT))
     add_subdirectory(tools)
 endif()
