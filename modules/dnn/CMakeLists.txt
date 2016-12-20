@@ -10,8 +10,24 @@ set(the_description "Deep neural network module. It allows to load models from d
 set(OPENCV_MODULE_IS_PART_OF_WORLD OFF)
 
 ocv_add_module(dnn opencv_core opencv_imgproc WRAP python matlab)
-ocv_warnings_disable(CMAKE_CXX_FLAGS -Wno-shadow -Wno-parentheses -Wmaybe-uninitialized -Wsign-promo -Wmissing-declarations -Wmissing-prototypes)
-ocv_warnings_disable(CMAKE_CXX_FLAGS /wd4701)
+ocv_warnings_disable(CMAKE_CXX_FLAGS -Wno-shadow -Wno-parentheses -Wmaybe-uninitialized -Wsign-promo
+                                     -Wmissing-declarations -Wmissing-prototypes
+)
+ocv_warnings_disable(CMAKE_CXX_FLAGS /wd4701 /wd4100)
+
+if(MSVC)
+  add_definitions( -D_CRT_SECURE_NO_WARNINGS=1 )
+  ocv_warnings_disable(CMAKE_CXX_FLAGS /wd4244 /wd4267 /wd4018 /wd4355 /wd4800 /wd4251 /wd4996 /wd4146
+                                       /wd4305 /wd4127 /wd4100 /wd4512 /wd4125 /wd4389 /wd4510 /wd4610
+                                       /wd4702 /wd4456 /wd4457 /wd4065 /wd4310 /wd4661 /wd4506
+  )
+else()
+  ocv_warnings_disable(CMAKE_CXX_FLAGS -Wno-deprecated -Wmissing-prototypes -Wmissing-declarations -Wshadow
+                                       -Wunused-parameter -Wunused-local-typedefs -Wsign-compare -Wsign-promo
+                                       -Wundef -Wtautological-undefined-compare -Wignored-qualifiers -Wextra
+                                       -Wunused-function -Wunused-const-variable -Wdeprecated-declarations
+  )
+endif()
 
 # ----------------------------------------------------------------------------
 # Resolve libprotobuf dependency
