@@ -43,7 +43,10 @@
 #include "layers_common.hpp"
 #include "softmax_layer.hpp"
 #include <opencv2/core/ocl.hpp>
-#include "modules/dnn/opencl_kernels_dnn.hpp"
+//#include "modules/dnn/opencl_kernels_dnn.hpp"
+#ifdef HAVE_OPENCL
+#undef HAVE_OPENCL
+#endif
 #include <algorithm>
 #include <stdlib.h>
 using std::max;

@@ -42,7 +42,10 @@
 #include "../precomp.hpp"
 #include "layers_common.hpp"
 #include "lrn_layer.hpp"
-#include "modules/dnn/opencl_kernels_dnn.hpp"
+//#include "modules/dnn/opencl_kernels_dnn.hpp"
+#ifdef HAVE_OPENCL
+#undef HAVE_OPENCL
+#endif
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/ocl.hpp>
 #include <opencv2/dnn/shape_utils.hpp>
