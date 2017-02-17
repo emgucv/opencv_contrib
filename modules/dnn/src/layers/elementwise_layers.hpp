@@ -148,7 +148,7 @@ public:
         {
             const Mat &src = inputs[i]->matRefConst();
             Mat &dst = outputs[i].matRef();
-            CV_Assert(src.ptr() == dst.ptr() && src.isContinuous());
+            CV_Assert( src.isContinuous() );
 
             Range sizeRange = Range(0, dst.total());
             if (dst.type() == CV_32F)
