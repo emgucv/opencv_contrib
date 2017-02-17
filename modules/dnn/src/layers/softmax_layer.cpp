@@ -86,12 +86,16 @@ void SoftMaxLayerImpl::forward(std::vector<Blob*> &inputs, std::vector<Blob> &ou
     Blob &src = *inputs[0];
     Blob &dst = outputs[0];
 
+#ifdef HAVE_OPENCL
     if (!useOpenCL)
         forward_cpu(src, dst);
     else
     {
         CV_Assert(forward_ocl(src, dst));
     }
+#else
+	forward_cpu(src, dst);
+#endif
 }
 
 #ifdef HAVE_OPENCL
