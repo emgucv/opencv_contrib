@@ -160,8 +160,11 @@ namespace cv{
   /*
  * Constructor
  */
-  Ptr<TrackerKCF> TrackerKCF::createTracker(const TrackerKCF::Params &parameters){
+  Ptr<TrackerKCF> TrackerKCF::create(const TrackerKCF::Params &parameters){
       return Ptr<TrackerKCFImpl>(new TrackerKCFImpl(parameters));
+  }
+  Ptr<TrackerKCF> TrackerKCF::create(){
+      return Ptr<TrackerKCFImpl>(new TrackerKCFImpl());
   }
   TrackerKCFImpl::TrackerKCFImpl( const TrackerKCF::Params &parameters ) :
       params( parameters )
@@ -188,7 +191,7 @@ namespace cv{
    * - creating a gaussian response for the training ground-truth
    * - perform FFT to the gaussian response
    */
-  bool TrackerKCFImpl::initImpl( const Mat& /*image*/, const Rect2d& boundingBox ){
+  bool TrackerKCFImpl::initImpl( const Mat& image, const Rect2d& boundingBox ){
     frame=0;
     roi = boundingBox;
 
@@ -256,7 +259,11 @@ namespace cv{
       || use_custom_extractor_npca
     );
 
-    // TODO: return true only if roi inside the image
+    //return true only if roi has intersection with the image
+    if((roi & Rect2d(0,0, resizeImage ? image.cols / 2 : image.cols,
+                     resizeImage ? image.rows / 2 : image.rows)) == Rect2d())
+        return false;
+
     return true;
   }
 
@@ -334,6 +341,10 @@ namespace cv{
 
       // extract the maximum response
       minMaxLoc( response, &minVal, &maxVal, &minLoc, &maxLoc );
+      if (maxVal < params.detect_thresh)
+      {
+          return false;
+      }
       roi.x+=(maxLoc.x-roi.width/2+1);
       roi.y+=(maxLoc.y-roi.height/2+1);
     }
@@ -576,11 +587,8 @@ namespace cv{
     Rect region=_roi;
 
     // return false if roi is outside the image
-    if((_roi.x+_roi.width<0)
-      ||(_roi.y+_roi.height<0)
-      ||(_roi.x>=img.cols)
-      ||(_roi.y>=img.rows)
-    )return false;
+    if((roi & Rect2d(0,0, img.cols, img.rows)) == Rect2d() )
+        return false;
 
     // extract patch inside the image
     if(_roi.x<0){region.x=0;region.width+=_roi.x;}
@@ -817,6 +825,7 @@ namespace cv{
  * Parameters
  */
   TrackerKCF::Params::Params(){
+      detect_thresh = 0.5;
       sigma=0.2;
       lambda=0.01;
       interp_factor=0.075;
@@ -834,10 +843,67 @@ namespace cv{
       pca_learning_rate=0.15;
   }
 
-  void TrackerKCF::Params::read( const cv::FileNode& /*fn*/ ){}
+  void TrackerKCF::Params::read( const cv::FileNode& fn ){
+      *this = TrackerKCF::Params();
 
-  void TrackerKCF::Params::write( cv::FileStorage& /*fs*/ ) const{}
+      if (!fn["detect_thresh"].empty())
+          fn["detect_thresh"] >> detect_thresh;
 
-  void TrackerKCF::setFeatureExtractor(void (*)(const Mat, const Rect, Mat&), bool ){};
+      if (!fn["sigma"].empty())
+          fn["sigma"] >> sigma;
 
+      if (!fn["lambda"].empty())
+          fn["lambda"] >> lambda;
+
+      if (!fn["interp_factor"].empty())
+          fn["interp_factor"] >> interp_factor;
+
+      if (!fn["output_sigma_factor"].empty())
+          fn["output_sigma_factor"] >> output_sigma_factor;
+
+      if (!fn["resize"].empty())
+          fn["resize"] >> resize;
+
+      if (!fn["max_patch_size"].empty())
+          fn["max_patch_size"] >> max_patch_size;
+
+      if (!fn["split_coeff"].empty())
+          fn["split_coeff"] >> split_coeff;
+
+      if (!fn["wrap_kernel"].empty())
+          fn["wrap_kernel"] >> wrap_kernel;
+
+
+      if (!fn["desc_npca"].empty())
+          fn["desc_npca"] >> desc_npca;
+
+      if (!fn["desc_pca"].empty())
+          fn["desc_pca"] >> desc_pca;
+
+      if (!fn["compress_feature"].empty())
+          fn["compress_feature"] >> compress_feature;
+
+      if (!fn["compressed_size"].empty())
+          fn["compressed_size"] >> compressed_size;
+
+      if (!fn["pca_learning_rate"].empty())
+          fn["pca_learning_rate"] >> pca_learning_rate;
+  }
+
+  void TrackerKCF::Params::write( cv::FileStorage& fs ) const{
+    fs << "detect_thresh" << detect_thresh;
+    fs << "sigma" << sigma;
+    fs << "lambda" << lambda;
+    fs << "interp_factor" << interp_factor;
+    fs << "output_sigma_factor" << output_sigma_factor;
+    fs << "resize" << resize;
+    fs << "max_patch_size" << max_patch_size;
+    fs << "split_coeff" << split_coeff;
+    fs << "wrap_kernel" << wrap_kernel;
+    fs << "desc_npca" << desc_npca;
+    fs << "desc_pca" << desc_pca;
+    fs << "compress_feature" << compress_feature;
+    fs << "compressed_size" << compressed_size;
+    fs << "pca_learning_rate" << pca_learning_rate;
+  }
 } /* namespace cv */

@@ -56,10 +56,7 @@
 #include <iostream>
 
 #include "opencv2/core/utility.hpp"
-//#include "opencv2/core/private.hpp"
 #include <opencv2/imgproc.hpp>
-#include <opencv2/features2d.hpp>
-#include <opencv2/highgui.hpp>
 #include "opencv2/core.hpp"
 
 /* define data types */
@@ -750,10 +747,7 @@ class CV_EXPORTS BinaryDescriptor : public Algorithm
 
       /* check parameters */
       if( n < 0 || k < 0 || k > n || p <= 0.0 || p >= 1.0 )
-      {
-        std::cout << "nfa: wrong n, k or p values." << std::endl;
-        exit( 0 );
-      }
+        CV_Error(Error::StsBadArg, "nfa: wrong n, k or p values.\n");
       /* trivial cases */
       if( n == 0 || k == 0 )
         return -logNT;

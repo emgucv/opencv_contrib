@@ -299,7 +299,7 @@ void CV_ArucoRefine::run(int) {
                 vector< int > ids;
                 Ptr<aruco::DetectorParameters> params = aruco::DetectorParameters::create();
                 params->minDistanceToBorder = 3;
-                params->doCornerRefinement = true;
+                params->cornerRefinementMethod = aruco::CORNER_REFINE_SUBPIX;
                 params->markerBorderBits = markerBorder;
                 aruco::detectMarkers(img, dictionary, corners, ids, params, rejected);
 
@@ -400,7 +400,7 @@ TEST(CV_ArucoBoardPose, CheckNegativeZ)
     pts2d.push_back(cv::Point2f(586.3f, 188.5f));
     corners.push_back(pts2d);
 
-    nUsed = cv::aruco::estimatePoseBoard(corners, board.ids, boardPtr, cameraMatrix, Mat(), rvec, tvec);
+    nUsed = cv::aruco::estimatePoseBoard(corners, board.ids, boardPtr, cameraMatrix, Mat(), rvec, tvec, true);
     ASSERT_EQ(nUsed, 2);
 
     cv::Rodrigues(rvec, rotm);

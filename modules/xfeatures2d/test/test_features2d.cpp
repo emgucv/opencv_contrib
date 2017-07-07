@@ -997,6 +997,24 @@ TEST( Features2d_Detector_STAR, regression )
     test.safe_run();
 }
 
+TEST( Features2d_Detector_Harris_Laplace, regression )
+{
+    CV_FeatureDetectorTest test( "detector-harris-laplace", HarrisLaplaceFeatureDetector::create() );
+    test.safe_run();
+}
+
+TEST( Features2d_Detector_Harris_Laplace_Affine_Keypoint_Invariance, regression )
+{
+    CV_FeatureDetectorTest test( "detector-harris-laplace", AffineFeature2D::create(HarrisLaplaceFeatureDetector::create()));
+    test.safe_run();
+}
+
+TEST( Features2d_Detector_Harris_Laplace_Affine, regression )
+{
+    CV_FeatureDetectorTest test( "detector-harris-laplace-affine", AffineFeature2D::create(HarrisLaplaceFeatureDetector::create()));
+    test.safe_run();
+}
+
 /*
  * Descriptors
  */
@@ -1036,10 +1054,32 @@ TEST( Features2d_DescriptorExtractor_BRIEF, regression )
     test.safe_run();
 }
 
+template <int threshold = 0>
+struct LUCIDEqualityDistance
+{
+    typedef unsigned char ValueType;
+    typedef int ResultType;
+
+    ResultType operator()( const unsigned char* a, const unsigned char* b, int size ) const
+    {
+        int res = 0;
+        for (int i = 0; i < size; i++)
+        {
+            if (threshold == 0)
+                res += (a[i] != b[i]) ? 1 : 0;
+            else
+                res += abs(a[i] - b[i]) > threshold ? 1 : 0;
+        }
+        return res;
+    }
+};
+
 TEST( Features2d_DescriptorExtractor_LUCID, regression )
 {
-    CV_DescriptorExtractorTest<Hamming> test( "descriptor-lucid",  1,
-                                             LUCID::create(1, 2) );
+    CV_DescriptorExtractorTest< LUCIDEqualityDistance<1/*used blur is not bit-exact*/> > test(
+            "descriptor-lucid", 2,
+            LUCID::create(1, 2)
+    );
     test.safe_run();
 }
 

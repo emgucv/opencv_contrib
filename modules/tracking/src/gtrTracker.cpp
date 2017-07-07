@@ -38,7 +38,7 @@
 // the use of this software, even if advised of the possibility of such damage.
 //
 //M*/
-
+#include "opencv2/opencv_modules.hpp"
 #include "gtrTracker.hpp"
 
 
@@ -52,11 +52,22 @@ void TrackerGOTURN::Params::read(const cv::FileNode& /*fn*/){}
 void TrackerGOTURN::Params::write(cv::FileStorage& /*fs*/) const {}
 
 
-Ptr<TrackerGOTURN> TrackerGOTURN::createTracker(const TrackerGOTURN::Params &parameters)
+Ptr<TrackerGOTURN> TrackerGOTURN::create(const TrackerGOTURN::Params &parameters)
 {
+#ifdef HAVE_OPENCV_DNN
     return Ptr<gtr::TrackerGOTURNImpl>(new gtr::TrackerGOTURNImpl(parameters));
+#else
+    (void)(parameters);
+    CV_ErrorNoReturn(cv::Error::StsNotImplemented , "to use GOTURN, the tracking module needs to be built with opencv_dnn !");
+#endif
+}
+Ptr<TrackerGOTURN> TrackerGOTURN::create()
+{
+    return TrackerGOTURN::create(TrackerGOTURN::Params());
 }
 
+
+#ifdef HAVE_OPENCV_DNN
 namespace gtr
 {
 
@@ -158,19 +169,13 @@ bool TrackerGOTURNImpl::updateImpl(const Mat& image, Rect2d& boundingBox)
     searchPatch = searchPatch - 128;
 
     //Convert to Float type
-    targetPatch.convertTo(targetPatch, CV_32F);
-    searchPatch.convertTo(searchPatch, CV_32F);
+    Mat targetBlob = dnn::blobFromImage(targetPatch);
+    Mat searchBlob = dnn::blobFromImage(searchPatch);
 
-    dnn::Blob targetBlob = dnn::Blob(targetPatch);
-    dnn::Blob searchBlob = dnn::Blob(searchPatch);
+    net.setInput(targetBlob, ".data1");
+    net.setInput(searchBlob, ".data2");
 
-    net.setBlob(".data1", targetBlob);
-    net.setBlob(".data2", searchBlob);
-
-    net.forward();
-    dnn::Blob res = net.getBlob("scale");
-
-    Mat resMat = res.matRefConst().reshape(1, 1);
+    Mat resMat = net.forward("scale").reshape(1, 1);
 
     curBB.x = targetPatchRect.x + (resMat.at<float>(0) * targetPatchRect.width / INPUT_SIZE) - targetPatchRect.width;
     curBB.y = targetPatchRect.y + (resMat.at<float>(1) * targetPatchRect.height / INPUT_SIZE) - targetPatchRect.height;
@@ -183,9 +188,11 @@ bool TrackerGOTURNImpl::updateImpl(const Mat& image, Rect2d& boundingBox)
     //Set new model image and BB from current frame
     ((TrackerGOTURNModel*)static_cast<TrackerModel*>(model))->setImage(curFrame);
     ((TrackerGOTURNModel*)static_cast<TrackerModel*>(model))->setBoudingBox(curBB);
+
     return true;
 }
 
 }
+#endif // OPENCV_HAVE_DNN
 
 }

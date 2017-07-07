@@ -90,7 +90,7 @@ void OCRHMMDecoder::run(Mat& image, Mat& mask, string& output_text, vector<Rect>
         component_confidences->clear();
 }
 
-CV_WRAP String OCRHMMDecoder::run(InputArray image, int min_confidence, int component_level)
+String OCRHMMDecoder::run(InputArray image, int min_confidence, int component_level)
 {
     std::string output1;
     std::string output2;
@@ -109,7 +109,7 @@ CV_WRAP String OCRHMMDecoder::run(InputArray image, int min_confidence, int comp
     return String(output2);
 }
 
-CV_WRAP cv::String OCRHMMDecoder::run(InputArray image, InputArray mask, int min_confidence, int component_level)
+cv::String OCRHMMDecoder::run(InputArray image, InputArray mask, int min_confidence, int component_level)
 {
     std::string output1;
     std::string output2;
@@ -684,8 +684,17 @@ Ptr<OCRHMMDecoder> OCRHMMDecoder::create( Ptr<OCRHMMDecoder::ClassifierCallback>
     return makePtr<OCRHMMDecoderImpl>(_classifier, _vocabulary, transition_p, emission_p, (decoder_mode)_mode);
 }
 
+Ptr<OCRHMMDecoder> OCRHMMDecoder::create( const String& _filename,
+                                          const String& _vocabulary,
+                                          InputArray transition_p,
+                                          InputArray emission_p,
+                                          int _mode,
+                                          int _classifier)
+{
+    return makePtr<OCRHMMDecoderImpl>(loadOCRHMMClassifier(_filename, _classifier), _vocabulary, transition_p, emission_p, (decoder_mode)_mode);
+}
 
-class CV_EXPORTS OCRHMMClassifierKNN : public OCRHMMDecoder::ClassifierCallback
+class OCRHMMClassifierKNN : public OCRHMMDecoder::ClassifierCallback
 {
 public:
     //constructor
@@ -916,6 +925,22 @@ void OCRHMMClassifierKNN::eval( InputArray _mask, vector<int>& out_class, vector
 
 }
 
+Ptr<OCRHMMDecoder::ClassifierCallback> loadOCRHMMClassifier(const String& _filename, int _classifier)
+
+{
+    Ptr<OCRHMMDecoder::ClassifierCallback> pt;
+    switch(_classifier) {
+        case OCR_KNN_CLASSIFIER:
+            pt = loadOCRHMMClassifierNM(_filename);
+            break;
+        case OCR_CNN_CLASSIFIER:
+            pt = loadOCRHMMClassifierCNN(_filename);
+        default:
+            CV_Error(Error::StsBadArg, "Specified HMM classifier is not supported!");
+            break;
+    }
+    return pt;
+}
 
 Ptr<OCRHMMDecoder::ClassifierCallback> loadOCRHMMClassifierNM(const String& filename)
 
@@ -923,7 +948,7 @@ Ptr<OCRHMMDecoder::ClassifierCallback> loadOCRHMMClassifierNM(const String& file
     return makePtr<OCRHMMClassifierKNN>(std::string(filename));
 }
 
-class CV_EXPORTS OCRHMMClassifierCNN : public OCRHMMDecoder::ClassifierCallback
+class OCRHMMClassifierCNN : public OCRHMMDecoder::ClassifierCallback
 {
 public:
     //constructor
@@ -982,7 +1007,7 @@ OCRHMMClassifierCNN::OCRHMMClassifierCNN (const string& filename)
 
     nr_feature  = weights.rows;
     nr_class    = weights.cols;
-    patch_size  = (int)sqrt((float)kernels.cols);
+    patch_size  = cvRound(sqrt((float)kernels.cols));
     // algorithm internal parameters
     window_size = 32;
     num_quads   = 25;
@@ -1017,21 +1042,23 @@ void OCRHMMClassifierCNN::eval( InputArray _src, vector<int>& out_class, vector<
 
 
     int quad_id = 1;
-    for (int q_x=0; q_x<=window_size-quad_size; q_x=q_x+(int)(quad_size/2-1))
+    int sz_window_quad = window_size - quad_size;
+    int sz_half_quad = (int)(quad_size/2-1);
+    int sz_quad_patch = quad_size - patch_size;
+    for (int q_x=0; q_x <= sz_window_quad; q_x += sz_half_quad)
     {
-        for (int q_y=0; q_y<=window_size-quad_size; q_y=q_y+(int)(quad_size/2-1))
+        for (int q_y=0; q_y <= sz_window_quad; q_y += sz_half_quad)
         {
             Rect quad_rect = Rect(q_x,q_y,quad_size,quad_size);
             quad = img(quad_rect);
 
             //start sliding window (8x8) in each tile and store the patch as row in data_pool
-            for (int w_x=0; w_x<=quad_size-patch_size; w_x++)
+            for (int w_x = 0; w_x <= sz_quad_patch; w_x++)
             {
-                for (int w_y=0; w_y<=quad_size-patch_size; w_y++)
+                for (int w_y = 0; w_y <= sz_quad_patch; w_y++)
                 {
-                    quad(Rect(w_x,w_y,patch_size,patch_size)).copyTo(tmp);
+                    quad(Rect(w_x,w_y,patch_size,patch_size)).convertTo(tmp, CV_64F);
                     tmp = tmp.reshape(0,1);
-                    tmp.convertTo(tmp, CV_64F);
                     normalizeAndZCA(tmp);
                     vector<double> patch;
                     tmp.copyTo(patch);

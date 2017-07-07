@@ -39,7 +39,6 @@ the use of this software, even if advised of the possibility of such damage.
 ********************************************************************************/
 
 #include "precomp.hpp"
-#include "opencv2/highgui.hpp"
 #include "opencv2/ximgproc/segmentation.hpp"
 
 #include <iostream>
@@ -143,7 +142,7 @@ namespace cv {
                 Mat regions = regions_.getMat();
                 sizes = sizes_.getMat();
 
-                if (image_id != -1 && last_image_id != image_id) {
+                if (image_id == -1 || last_image_id != image_id) {
 
                     std::vector<Mat> img_planes;
                     split(img, img_planes);
@@ -508,7 +507,7 @@ namespace cv {
                 Mat regions = regions_.getMat();
                 sizes = sizes_.getMat();
 
-                if (image_id != -1 && last_image_id != image_id) {
+                if (image_id == -1 || last_image_id != image_id) {
 
                     std::vector<Mat> img_planes;
                     split(img, img_planes);
