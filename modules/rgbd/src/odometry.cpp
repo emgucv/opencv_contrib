@@ -1,39 +1,13 @@
-/*
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2012, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
- */
+// This file is part of OpenCV project.
+// It is subject to the license terms in the LICENSE file found in the top-level directory
+// of this distribution and at http://opencv.org/license.html
+
+// This code is also subject to the license terms in the LICENSE_KinectFusion.md file found in this module's directory
+
+// This code is also subject to the license terms in the LICENSE_WillowGarage.md file found in this module's directory
 
 #include "precomp.hpp"
+#include "fast_icp.hpp"
 
 #if defined(HAVE_EIGEN) && EIGEN_WORLD_VERSION == 3
 #define HAVE_EIGEN3_HERE
@@ -804,7 +778,7 @@ bool testDeltaTransformation(const Mat& deltaRt, double maxTranslation, double m
 }
 
 static
-bool RGBDICPOdometryImpl(Mat& Rt, const Mat& initRt,
+bool RGBDICPOdometryImpl(OutputArray _Rt, const Mat& initRt,
                          const Ptr<OdometryFrame>& srcFrame,
                          const Ptr<OdometryFrame>& dstFrame,
                          const Mat& cameraMatrix,
@@ -920,8 +894,9 @@ bool RGBDICPOdometryImpl(Mat& Rt, const Mat& initRt,
             isOk = true;
         }
     }
-
-    Rt = resultRt;
+    _Rt.create(resultRt.size(), resultRt.type());
+    Mat Rt = _Rt.getMat();
+    resultRt.copyTo(Rt);
 
     if(isOk)
     {
@@ -991,6 +966,14 @@ warpFrameImpl(const Mat& image, const Mat& depth, const Mat& mask,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
+Ptr<RgbdNormals> RgbdNormals::create(int rows_in, int cols_in, int depth_in, InputArray K_in, int window_size_in, int method_in) {
+  return makePtr<RgbdNormals>(rows_in, cols_in, depth_in, K_in, window_size_in, method_in);
+}
+
+Ptr<DepthCleaner> DepthCleaner::create(int depth_in, int window_size_in, int method_in) {
+  return makePtr<DepthCleaner>(depth_in, window_size_in, method_in);
+}
+
 RgbdFrame::RgbdFrame() : ID(-1)
 {}
 
@@ -1000,6 +983,10 @@ RgbdFrame::RgbdFrame(const Mat& image_in, const Mat& depth_in, const Mat& mask_i
 
 RgbdFrame::~RgbdFrame()
 {}
+
+Ptr<RgbdFrame> RgbdFrame::create(const Mat& image_in, const Mat& depth_in, const Mat& mask_in, const Mat& normals_in, int ID_in) {
+  return makePtr<RgbdFrame>(image_in, depth_in, mask_in, normals_in, ID_in);
+}
 
 void RgbdFrame::release()
 {
@@ -1016,6 +1003,10 @@ OdometryFrame::OdometryFrame() : RgbdFrame()
 OdometryFrame::OdometryFrame(const Mat& image_in, const Mat& depth_in, const Mat& mask_in, const Mat& normals_in, int ID_in)
     : RgbdFrame(image_in, depth_in, mask_in, normals_in, ID_in)
 {}
+
+Ptr<OdometryFrame> OdometryFrame::create(const Mat& image_in, const Mat& depth_in, const Mat& mask_in, const Mat& normals_in, int ID_in) {
+  return makePtr<OdometryFrame>(image_in, depth_in, mask_in, normals_in, ID_in);
+}
 
 void OdometryFrame::release()
 {
@@ -1041,7 +1032,7 @@ void OdometryFrame::releasePyramids()
 
 bool Odometry::compute(const Mat& srcImage, const Mat& srcDepth, const Mat& srcMask,
                        const Mat& dstImage, const Mat& dstDepth, const Mat& dstMask,
-                       Mat& Rt, const Mat& initRt) const
+                       OutputArray Rt, const Mat& initRt) const
 {
     Ptr<OdometryFrame> srcFrame(new OdometryFrame(srcImage, srcDepth, srcMask));
     Ptr<OdometryFrame> dstFrame(new OdometryFrame(dstImage, dstDepth, dstMask));
@@ -1049,7 +1040,7 @@ bool Odometry::compute(const Mat& srcImage, const Mat& srcDepth, const Mat& srcM
     return compute(srcFrame, dstFrame, Rt, initRt);
 }
 
-bool Odometry::compute(Ptr<OdometryFrame>& srcFrame, Ptr<OdometryFrame>& dstFrame, Mat& Rt, const Mat& initRt) const
+bool Odometry::compute(Ptr<OdometryFrame>& srcFrame, Ptr<OdometryFrame>& dstFrame, OutputArray Rt, const Mat& initRt) const
 {
     checkParams();
 
@@ -1078,6 +1069,8 @@ Ptr<Odometry> Odometry::create(const String & odometryType)
         return makePtr<ICPOdometry>();
     else if (odometryType == "RgbdICPOdometry")
         return makePtr<RgbdICPOdometry>();
+    else if (odometryType == "FastICPOdometry")
+        return makePtr<FastICPOdometry>();
     return Ptr<Odometry>();
 }
 
@@ -1114,6 +1107,13 @@ RgbdOdometry::RgbdOdometry(const Mat& _cameraMatrix,
         setDefaultIterCounts(iterCounts);
         setDefaultMinGradientMagnitudes(minGradientMagnitudes);
     }
+}
+
+Ptr<RgbdOdometry> RgbdOdometry::create(const Mat& _cameraMatrix, float _minDepth, float _maxDepth,
+                 float _maxDepthDiff, const std::vector<int>& _iterCounts,
+                 const std::vector<float>& _minGradientMagnitudes, float _maxPointsPart,
+                 int _transformType) {
+  return makePtr<RgbdOdometry>(_cameraMatrix, _minDepth, _maxDepth, _maxDepthDiff, _iterCounts, _minGradientMagnitudes, _maxPointsPart, _transformType);
 }
 
 Size RgbdOdometry::prepareFrameCache(Ptr<OdometryFrame>& frame, int cacheType) const
@@ -1177,7 +1177,7 @@ void RgbdOdometry::checkParams() const
     CV_Assert(minGradientMagnitudes.size() == iterCounts.size() || minGradientMagnitudes.size() == iterCounts.t().size());
 }
 
-bool RgbdOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame, const Ptr<OdometryFrame>& dstFrame, Mat& Rt, const Mat& initRt) const
+bool RgbdOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame, const Ptr<OdometryFrame>& dstFrame, OutputArray Rt, const Mat& initRt) const
 {
     return RGBDICPOdometryImpl(Rt, initRt, srcFrame, dstFrame, cameraMatrix, (float)maxDepthDiff, iterCounts, maxTranslation, maxRotation, RGBD_ODOMETRY, transformType);
 }
@@ -1202,6 +1202,12 @@ ICPOdometry::ICPOdometry(const Mat& _cameraMatrix,
 {
     if(iterCounts.empty())
         setDefaultIterCounts(iterCounts);
+}
+
+Ptr<ICPOdometry> ICPOdometry::create(const Mat& _cameraMatrix, float _minDepth, float _maxDepth,
+                 float _maxDepthDiff, float _maxPointsPart, const std::vector<int>& _iterCounts,
+                 int _transformType) {
+  return makePtr<ICPOdometry>(_cameraMatrix, _minDepth, _maxDepth, _maxDepthDiff, _maxPointsPart, _iterCounts, _transformType);
 }
 
 Size ICPOdometry::prepareFrameCache(Ptr<OdometryFrame>& frame, int cacheType) const
@@ -1276,7 +1282,7 @@ void ICPOdometry::checkParams() const
     CV_Assert(cameraMatrix.size() == Size(3,3) && (cameraMatrix.type() == CV_32FC1 || cameraMatrix.type() == CV_64FC1));
 }
 
-bool ICPOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame, const Ptr<OdometryFrame>& dstFrame, Mat& Rt, const Mat& initRt) const
+bool ICPOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame, const Ptr<OdometryFrame>& dstFrame, OutputArray Rt, const Mat& initRt) const
 {
     return RGBDICPOdometryImpl(Rt, initRt, srcFrame, dstFrame, cameraMatrix, (float)maxDepthDiff, iterCounts, maxTranslation, maxRotation, ICP_ODOMETRY, transformType);
 }
@@ -1307,6 +1313,13 @@ RgbdICPOdometry::RgbdICPOdometry(const Mat& _cameraMatrix,
         setDefaultIterCounts(iterCounts);
         setDefaultMinGradientMagnitudes(minGradientMagnitudes);
     }
+}
+
+Ptr<RgbdICPOdometry> RgbdICPOdometry::create(const Mat& _cameraMatrix, float _minDepth, float _maxDepth,
+                 float _maxDepthDiff, float _maxPointsPart, const std::vector<int>& _iterCounts,
+                 const std::vector<float>& _minGradientMagnitudes,
+                 int _transformType) {
+  return makePtr<RgbdICPOdometry>(_cameraMatrix, _minDepth, _maxDepth, _maxDepthDiff, _maxPointsPart, _iterCounts, _minGradientMagnitudes, _transformType);
 }
 
 Size RgbdICPOdometry::prepareFrameCache(Ptr<OdometryFrame>& frame, int cacheType) const
@@ -1397,9 +1410,133 @@ void RgbdICPOdometry::checkParams() const
     CV_Assert(minGradientMagnitudes.size() == iterCounts.size() || minGradientMagnitudes.size() == iterCounts.t().size());
 }
 
-bool RgbdICPOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame, const Ptr<OdometryFrame>& dstFrame, Mat& Rt, const Mat& initRt) const
+bool RgbdICPOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame, const Ptr<OdometryFrame>& dstFrame, OutputArray Rt, const Mat& initRt) const
 {
     return RGBDICPOdometryImpl(Rt, initRt, srcFrame, dstFrame, cameraMatrix, (float)maxDepthDiff, iterCounts,  maxTranslation, maxRotation, MERGED_ODOMETRY, transformType);
+}
+
+//
+
+using namespace cv::kinfu;
+
+FastICPOdometry::FastICPOdometry() :
+    maxDistDiff(DEFAULT_MAX_DEPTH_DIFF()),
+    angleThreshold((float)(30. * CV_PI / 180.)),
+    sigmaDepth(0.04f),
+    sigmaSpatial(4.5f),
+    kernelSize(7)
+{
+    setDefaultIterCounts(iterCounts);
+}
+
+FastICPOdometry::FastICPOdometry(const Mat& _cameraMatrix,
+                                 float _maxDistDiff,
+                                 float _angleThreshold,
+                                 float _sigmaDepth,
+                                 float _sigmaSpatial,
+                                 int _kernelSize,
+                                 const std::vector<int>& _iterCounts) :
+    maxDistDiff(_maxDistDiff),
+    angleThreshold(_angleThreshold),
+    sigmaDepth(_sigmaDepth),
+    sigmaSpatial(_sigmaSpatial),
+    kernelSize(_kernelSize),
+    iterCounts(Mat(_iterCounts).clone()),
+    cameraMatrix(_cameraMatrix)
+{
+    if(iterCounts.empty())
+        setDefaultIterCounts(iterCounts);
+}
+
+Ptr<FastICPOdometry> FastICPOdometry::create(const Mat& _cameraMatrix,
+                                             float _maxDistDiff,
+                                             float _angleThreshold,
+                                             float _sigmaDepth,
+                                             float _sigmaSpatial,
+                                             int _kernelSize,
+                                             const std::vector<int>& _iterCounts)
+{
+    return makePtr<FastICPOdometry>(_cameraMatrix, _maxDistDiff, _angleThreshold,
+                                   _sigmaDepth, _sigmaSpatial, _kernelSize, _iterCounts);
+}
+
+Size FastICPOdometry::prepareFrameCache(Ptr<OdometryFrame>& frame, int cacheType) const
+{
+    Odometry::prepareFrameCache(frame, cacheType);
+
+    if(frame->depth.empty())
+    {
+        if(!frame->pyramidDepth.empty())
+            frame->depth = frame->pyramidDepth[0];
+        else if(!frame->pyramidCloud.empty())
+        {
+            Mat cloud = frame->pyramidCloud[0];
+            std::vector<Mat> xyz;
+            split(cloud, xyz);
+            frame->depth = xyz[2];
+        }
+        else
+            CV_Error(Error::StsBadSize, "Depth or pyramidDepth or pyramidCloud have to be set.");
+    }
+    checkDepth(frame->depth, frame->depth.size());
+
+    // mask isn't used by FastICP
+
+    Ptr<FrameGenerator> fg = makeFrameGenerator(KinFu::Params::PlatformType::PLATFORM_CPU);
+    Ptr<FrameCPU> f = (*fg)().dynamicCast<FrameCPU>();
+    Intr intr(cameraMatrix);
+    float depthFactor = 1.f; // user should rescale depth manually
+    (*fg)(f, frame->depth, intr, (int)iterCounts.total(), depthFactor,
+          sigmaDepth, sigmaSpatial, kernelSize);
+
+    frame->pyramidCloud.clear();
+    frame->pyramidNormals.clear();
+    for(size_t i = 0; i < f->points.size(); i++)
+    {
+        frame->pyramidCloud.push_back(f->points[i]);
+        frame->pyramidNormals.push_back(f->normals[i]);
+    }
+
+    return frame->depth.size();
+}
+
+void FastICPOdometry::checkParams() const
+{
+    CV_Assert(cameraMatrix.size() == Size(3,3) &&
+              (cameraMatrix.type() == CV_32FC1 ||
+               cameraMatrix.type() == CV_64FC1));
+
+    CV_Assert(maxDistDiff > 0);
+    CV_Assert(angleThreshold > 0);
+    CV_Assert(sigmaDepth > 0 && sigmaSpatial > 0 && kernelSize > 0);
+}
+
+bool FastICPOdometry::computeImpl(const Ptr<OdometryFrame>& srcFrame,
+                                  const Ptr<OdometryFrame>& dstFrame,
+                                  OutputArray Rt, const Mat& /*initRt*/) const
+{
+    kinfu::Intr intr(cameraMatrix);
+    std::vector<int> iterations = iterCounts;
+    Ptr<kinfu::ICP> icp = kinfu::makeICP(kinfu::KinFu::Params::PlatformType::PLATFORM_CPU,
+                                         intr,
+                                         iterations,
+                                         angleThreshold,
+                                         maxDistDiff);
+
+    Affine3f transform;
+    Ptr<FrameCPU> srcF = makePtr<FrameCPU>(), dstF = makePtr<FrameCPU>();
+    for(size_t i = 0; i < srcFrame->pyramidCloud.size(); i++)
+    {
+        srcF-> points.push_back(srcFrame->pyramidCloud  [i]);
+        srcF->normals.push_back(srcFrame->pyramidNormals[i]);
+        dstF-> points.push_back(dstFrame->pyramidCloud  [i]);
+        dstF->normals.push_back(dstFrame->pyramidNormals[i]);
+    }
+    bool result = icp->estimateTransform(transform, dstF, srcF);
+
+    Rt.create(Size(4, 4), CV_64FC1);
+    Mat(Matx44d(transform.matrix)).copyTo(Rt.getMat());
+    return result;
 }
 
 //
@@ -1416,5 +1553,5 @@ warpFrame(const Mat& image, const Mat& depth, const Mat& mask,
     else
         CV_Error(Error::StsBadArg, "Image has to be type of CV_8UC1 or CV_8UC3");
 }
-}
+} // namespace rgbd
 } // namespace cv

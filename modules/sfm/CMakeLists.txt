@@ -1,3 +1,4 @@
+set(OPENCV_MODULE_IS_PART_OF_WORLD FALSE)
 set(the_description "SFM algorithms")
 
 
@@ -39,7 +40,7 @@ endif()
 ### LIBMV LIGHT DEFINITIONS ###
 
 set(LIBMV_LIGHT_INCLUDES
-  src/libmv_light
+  "${CMAKE_CURRENT_LIST_DIR}/src/libmv_light"
   "${OpenCV_SOURCE_DIR}/include/opencv"
   "${GLOG_INCLUDE_DIRS}"
   "${GFLAGS_INCLUDE_DIRS}"
@@ -60,6 +61,15 @@ if(Ceres_FOUND)
 else()
   add_definitions("-DCERES_FOUND=0")
   message(STATUS "CERES support is disabled. Ceres Solver for reconstruction API is required.")
+endif()
+
+### COMPILE WITH C++11 IF CERES WAS COMPILED WITH C++11
+
+if(Ceres_FOUND)
+  list (FIND CERES_COMPILED_COMPONENTS "C++11" _index)
+  if (${_index} GREATER -1)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  endif()
 endif()
 
 ### DEFINE OPENCV SFM MODULE DEPENDENCIES ###
@@ -113,7 +123,7 @@ if(NOT CMAKE_VERSION VERSION_LESS 2.8.11) # See ocv_target_include_directories()
   endif()
 endif()
 include_directories(${OCV_TARGET_INCLUDE_DIRS_${the_module}})
-add_subdirectory(src/libmv_light)
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/src/libmv_light" "${CMAKE_CURRENT_BINARY_DIR}/src/libmv")
 
 ocv_target_link_libraries(${the_module} ${LIBMV_LIGHT_LIBS})
 

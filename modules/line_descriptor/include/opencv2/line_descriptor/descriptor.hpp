@@ -253,13 +253,13 @@ class CV_EXPORTS BinaryDescriptor : public Algorithm
 
     @param fn source FileNode file
      */
-  virtual void read( const cv::FileNode& fn );
+  virtual void read( const cv::FileNode& fn ) CV_OVERRIDE;
 
   /** @brief Store parameters to a FileStorage object
 
     @param fs output FileStorage file
      */
-  virtual void write( cv::FileStorage& fs ) const;
+  virtual void write( cv::FileStorage& fs ) const CV_OVERRIDE;
 
   /** @brief Requires line detection
 
@@ -401,6 +401,12 @@ class CV_EXPORTS BinaryDescriptor : public Algorithm
     unsigned int octaveCount;
     //the decriptor of line
     std::vector<float> descriptor;
+
+    OctaveSingleLine() : startPointX(0), startPointY(0), endPointX(0), endPointY(0),
+        sPointInOctaveX(0), sPointInOctaveY(0), ePointInOctaveX(0), ePointInOctaveY(0),
+        direction(0), salience(0), lineLength(0), numOfPixels(0), octaveCount(0),
+        descriptor(std::vector<float>())
+    {}
   };
 
   struct Pixel
@@ -1070,7 +1076,7 @@ static Ptr<BinaryDescriptorMatcher> createBinaryDescriptorMatcher();
 
 /** @brief Clear dataset and internal data
  */
-void clear();
+void clear() CV_OVERRIDE;
 
 /** @brief Constructor.
 

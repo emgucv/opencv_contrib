@@ -58,7 +58,7 @@ Ptr<TrackerGOTURN> TrackerGOTURN::create(const TrackerGOTURN::Params &parameters
     return Ptr<gtr::TrackerGOTURNImpl>(new gtr::TrackerGOTURNImpl(parameters));
 #else
     (void)(parameters);
-    CV_ErrorNoReturn(cv::Error::StsNotImplemented , "to use GOTURN, the tracking module needs to be built with opencv_dnn !");
+    CV_Error(cv::Error::StsNotImplemented , "to use GOTURN, the tracking module needs to be built with opencv_dnn !");
 #endif
 }
 Ptr<TrackerGOTURN> TrackerGOTURN::create()
@@ -81,8 +81,8 @@ public:
 protected:
     Rect2d boundingBox_;
     Mat image_;
-    void modelEstimationImpl(const std::vector<Mat>&){}
-    void modelUpdateImpl(){}
+    void modelEstimationImpl(const std::vector<Mat>&) CV_OVERRIDE {}
+    void modelUpdateImpl() CV_OVERRIDE {}
 };
 
 TrackerGOTURNImpl::TrackerGOTURNImpl(const TrackerGOTURN::Params &parameters) :
@@ -110,23 +110,7 @@ bool TrackerGOTURNImpl::initImpl(const Mat& image, const Rect2d& boundingBox)
     //Load GOTURN architecture from *.prototxt and pretrained weights from *.caffemodel
     String modelTxt = "goturn.prototxt";
     String modelBin = "goturn.caffemodel";
-    Ptr<dnn::Importer> importer;
-    try                                     //Import GOTURN model
-    {
-        importer = dnn::createCaffeImporter(modelTxt, modelBin);
-    }
-    catch (const cv::Exception &err)        //Importer can throw errors, we will catch them
-    {
-        std::cerr << err.msg << std::endl;
-    }
-    if (!importer)
-    {
-        cvError(CV_StsError, "cv::gtr::InitImpl", "GOTURN network loading error...", "gtrTracker.cpp", 117);
-    }
-
-    importer->populateNet(net);
-    importer.release();                     //We don't need importer anymore
-
+    net = dnn::readNetFromCaffe(modelTxt, modelBin);
     return true;
 }
 
@@ -161,19 +145,15 @@ bool TrackerGOTURNImpl::updateImpl(const Mat& image, Rect2d& boundingBox)
 
     //Preprocess
     //Resize
-    resize(targetPatch, targetPatch, Size(INPUT_SIZE, INPUT_SIZE));
-    resize(searchPatch, searchPatch, Size(INPUT_SIZE, INPUT_SIZE));
+    resize(targetPatch, targetPatch, Size(INPUT_SIZE, INPUT_SIZE), 0, 0, INTER_LINEAR_EXACT);
+    resize(searchPatch, searchPatch, Size(INPUT_SIZE, INPUT_SIZE), 0, 0, INTER_LINEAR_EXACT);
 
-    //Mean Subtract
-    targetPatch = targetPatch - 128;
-    searchPatch = searchPatch - 128;
+    //Convert to Float type and subtract mean
+    Mat targetBlob = dnn::blobFromImage(targetPatch, 1.0f, Size(), Scalar::all(128), false);
+    Mat searchBlob = dnn::blobFromImage(searchPatch, 1.0f, Size(), Scalar::all(128), false);
 
-    //Convert to Float type
-    Mat targetBlob = dnn::blobFromImage(targetPatch);
-    Mat searchBlob = dnn::blobFromImage(searchPatch);
-
-    net.setInput(targetBlob, ".data1");
-    net.setInput(searchBlob, ".data2");
+    net.setInput(targetBlob, "data1");
+    net.setInput(searchBlob, "data2");
 
     Mat resMat = net.forward("scale").reshape(1, 1);
 

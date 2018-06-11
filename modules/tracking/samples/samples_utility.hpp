@@ -19,6 +19,10 @@ inline cv::Ptr<cv::Tracker> createTrackerByName(cv::String name)
         tracker = cv::TrackerMIL::create();
     else if (name == "GOTURN")
         tracker = cv::TrackerGOTURN::create();
+    else if (name == "MOSSE")
+        tracker = cv::TrackerMOSSE::create();
+    else if (name == "CSRT")
+        tracker = cv::TrackerCSRT::create();
     else
         CV_Error(cv::Error::StsBadArg, "Invalid tracking algorithm name\n");
 

@@ -43,10 +43,14 @@ public:
 
     // Computes an Eigenfaces model with images in src and corresponding labels
     // in labels.
-    void train(InputArrayOfArrays src, InputArray labels);
+    void train(InputArrayOfArrays src, InputArray labels) CV_OVERRIDE;
 
     // Send all predict results to caller side for custom result handling
-    void predict(InputArray src, Ptr<PredictCollector> collector) const;
+    void predict(InputArray src, Ptr<PredictCollector> collector) const CV_OVERRIDE;
+    String getDefaultName() const CV_OVERRIDE
+    {
+        return "opencv_eigenfaces";
+    }
 };
 
 //------------------------------------------------------------------------------

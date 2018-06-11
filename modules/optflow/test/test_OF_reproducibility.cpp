@@ -40,15 +40,8 @@
 //M*/
 
 #include "test_precomp.hpp"
-#include <fstream>
 
-using namespace std;
-using namespace std::tr1;
-using namespace cv;
-using namespace cvtest;
-using namespace perf;
-using namespace testing;
-using namespace optflow;
+namespace opencv_test { namespace {
 
 typedef tuple<Size> OFParams;
 typedef TestWithParam<OFParams> DenseOpticalFlow_DIS;
@@ -64,6 +57,9 @@ TEST_P(DenseOpticalFlow_DIS, MultithreadReproducibility)
     OFParams params = GetParam();
     Size size = get<0>(params);
 
+    int nThreads = cv::getNumThreads();
+    if (nThreads == 1)
+        throw SkipTestException("Single thread environment");
     for (int iter = 0; iter <= loopsCount; iter++)
     {
         Mat frame1(size, CV_8U);
@@ -86,7 +82,7 @@ TEST_P(DenseOpticalFlow_DIS, MultithreadReproducibility)
         algo->setUseMeanNormalization(use_mean_normalization);
         algo->setUseSpatialPropagation(use_spatial_propagation);
 
-        cv::setNumThreads(cv::getNumberOfCPUs());
+        cv::setNumThreads(nThreads);
         Mat resMultiThread;
         algo->calc(frame1, frame2, resMultiThread);
 
@@ -118,6 +114,9 @@ TEST_P(DenseOpticalFlow_VariationalRefinement, MultithreadReproducibility)
     OFParams params = GetParam();
     Size size = get<0>(params);
 
+    int nThreads = cv::getNumThreads();
+    if (nThreads == 1)
+        throw SkipTestException("Single thread environment");
     for (int iter = 0; iter <= loopsCount; iter++)
     {
         Mat frame1(size, CV_8U);
@@ -135,7 +134,7 @@ TEST_P(DenseOpticalFlow_VariationalRefinement, MultithreadReproducibility)
         var->setFixedPointIterations(rng.uniform(1, 20));
         var->setOmega(rng.uniform(1.01f, 1.99f));
 
-        cv::setNumThreads(cv::getNumberOfCPUs());
+        cv::setNumThreads(nThreads);
         Mat resMultiThread;
         flow.copyTo(resMultiThread);
         var->calc(frame1, frame2, resMultiThread);
@@ -157,3 +156,5 @@ TEST_P(DenseOpticalFlow_VariationalRefinement, MultithreadReproducibility)
 }
 
 INSTANTIATE_TEST_CASE_P(FullSet, DenseOpticalFlow_VariationalRefinement, Values(szODD, szQVGA));
+
+}} // namespace

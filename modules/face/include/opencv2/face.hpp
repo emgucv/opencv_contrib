@@ -40,7 +40,7 @@ the use of this software, even if advised of the possibility of such damage.
 #define __OPENCV_FACE_HPP__
 
 /**
-@defgroup face Face Recognition
+@defgroup face Face Analysis
 
 - @ref face_changelog
 - @ref tutorial_face_main
@@ -70,7 +70,7 @@ which is available since the 2.4 release. I suggest you take a look at its descr
 
 Algorithm provides the following features for all derived classes:
 
--   So called “virtual constructor”. That is, each Algorithm derivative is registered at program
+-   So called "virtual constructor". That is, each Algorithm derivative is registered at program
     start and you can get the list of registered algorithms and create instance of a particular
     algorithm by its name (see Algorithm::create). If you plan to add your own algorithms, it is
     good practice to add a unique prefix to your algorithms to distinguish them from other
@@ -333,13 +333,13 @@ public:
     Saves this model to a given FileStorage.
     @param fs The FileStorage to store this FaceRecognizer to.
     */
-    virtual void write(FileStorage& fs) const = 0;
+    virtual void write(FileStorage& fs) const CV_OVERRIDE = 0;
 
     /** @overload */
-    virtual void read(const FileNode& fn) = 0;
+    virtual void read(const FileNode& fn) CV_OVERRIDE = 0;
 
     /** @overload */
-    virtual bool empty() const = 0;
+    virtual bool empty() const CV_OVERRIDE = 0;
 
     /** @brief Sets string info for the specified model's label.
 
@@ -374,5 +374,11 @@ protected:
 }}
 
 #include "opencv2/face/facerec.hpp"
+#include "opencv2/face/facemark.hpp"
+#include "opencv2/face/facemark_train.hpp"
+#include "opencv2/face/facemarkLBF.hpp"
+#include "opencv2/face/facemarkAAM.hpp"
+#include "opencv2/face/face_alignment.hpp"
+#include "opencv2/face/mace.hpp"
 
-#endif
+#endif // __OPENCV_FACE_HPP__
