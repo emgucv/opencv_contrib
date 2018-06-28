@@ -1091,12 +1091,14 @@ void TSDFVolumeCPU::fetchPointsNormals(OutputArray _points, OutputArray _normals
         }
 
         _points.create((int)points.size(), 1, DataType<ptype>::type);
-        Mat((int)points.size(), 1, DataType<ptype>::type, &points[0]).copyTo(_points.getMat());
+        if(!points.empty())
+            Mat((int)points.size(), 1, DataType<ptype>::type, &points[0]).copyTo(_points.getMat());
 
         if(_normals.needed())
         {
             _normals.create((int)normals.size(), 1, DataType<ptype>::type);
-            Mat((int)normals.size(), 1, DataType<ptype>::type, &normals[0]).copyTo(_normals.getMat());
+            if(!normals.empty())
+                Mat((int)normals.size(), 1, DataType<ptype>::type, &normals[0]).copyTo(_normals.getMat());
         }
     }
 }
@@ -1197,16 +1199,16 @@ void TSDFVolumeGPU::fetchPointsNormals(OutputArray /*points*/, OutputArray /*nor
     throw std::runtime_error("Not implemented");
 }
 
-cv::Ptr<TSDFVolume> makeTSDFVolume(cv::kinfu::KinFu::Params::PlatformType t,
+cv::Ptr<TSDFVolume> makeTSDFVolume(cv::kinfu::Params::PlatformType t,
                                    int _res, float _size, cv::Affine3f _pose, float _truncDist, int _maxWeight,
                                    float _raycastStepFactor)
 {
     switch (t)
     {
-    case cv::kinfu::KinFu::Params::PlatformType::PLATFORM_CPU:
+    case cv::kinfu::Params::PlatformType::PLATFORM_CPU:
         return cv::makePtr<TSDFVolumeCPU>(_res, _size, _pose, _truncDist, _maxWeight,
                                           _raycastStepFactor);
-    case cv::kinfu::KinFu::Params::PlatformType::PLATFORM_GPU:
+    case cv::kinfu::Params::PlatformType::PLATFORM_GPU:
         return cv::makePtr<TSDFVolumeGPU>(_res, _size, _pose, _truncDist, _maxWeight,
                                           _raycastStepFactor);
     default:
