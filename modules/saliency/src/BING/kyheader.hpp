@@ -153,9 +153,22 @@ inline cv::Rect Vec4i2Rect( cv::Vec4i &v )
 
 
 #if defined(_MSC_VER)
+#ifdef _M_ARM
+inline int POPCNT(unsigned n) {
+	// Taken from http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+	n = n - ((n >> 1) & 0x55555555);
+	n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+	return ((n + ((n >> 4) & 0xF0F0F0F)) * 0x1010101) >> 24;
+	// ---
+}
+inline int POPCNT64(unsigned n) {
+	return POPCNT((unsigned)(n)) + POPCNT((unsigned)((uint64_t)(n) >> 32));
+}
+#else
 # include <intrin.h>
 # define POPCNT(x) __popcnt(x)
 # define POPCNT64(x) (__popcnt((unsigned)(x)) + __popcnt((unsigned)((uint64_t)(x) >> 32)))
+#endif
 #endif
 
 #if defined(__GNUC__)
