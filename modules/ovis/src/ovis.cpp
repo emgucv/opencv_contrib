@@ -31,11 +31,28 @@ WindowScene::~WindowScene() {}
 
 void _createTexture(const String& name, Mat image)
 {
+    PixelFormat format;
+    switch(image.type())
+    {
+    case CV_8UC4:
+        format = PF_BYTE_BGRA;
+        break;
+    case CV_8UC3:
+        format = PF_BYTE_BGR;
+        break;
+    case CV_8UC1:
+        format = PF_BYTE_L;
+        break;
+    default:
+        CV_Error(Error::StsBadArg, "currently only CV_8UC1, CV_8UC3, CV_8UC4 textures are supported");
+        break;
+    }
+
     TextureManager& texMgr = TextureManager::getSingleton();
     TexturePtr tex = texMgr.getByName(name, RESOURCEGROUP_NAME);
 
     Image im;
-    im.loadDynamicImage(image.ptr(), image.cols, image.rows, 1, PF_BYTE_BGR);
+    im.loadDynamicImage(image.ptr(), image.cols, image.rows, 1, format);
 
     if (tex)
     {
@@ -50,8 +67,8 @@ void _createTexture(const String& name, Mat image)
 
 static void _convertRT(InputArray rot, InputArray tvec, Quaternion& q, Vector3& t, bool invert = false)
 {
-    CV_Assert(rot.empty() || rot.rows() == 3 || rot.size() == Size(3, 3),
-              tvec.empty() || tvec.rows() == 3);
+    CV_Assert_N(rot.empty() || rot.rows() == 3 || rot.size() == Size(3, 3),
+                tvec.empty() || tvec.rows() == 3);
 
     q = Quaternion::IDENTITY;
     t = Vector3::ZERO;
@@ -98,11 +115,11 @@ static void _setCameraIntrinsics(Camera* cam, InputArray _K, const Size& imsize)
 
     Matx33f K = _K.getMat();
 
-    float near = cam->getNearClipDistance();
-    float top = near * K(1, 2) / K(1, 1);
-    float left = -near * K(0, 2) / K(0, 0);
-    float right = near * (imsize.width - K(0, 2)) / K(0, 0);
-    float bottom = -near * (imsize.height - K(1, 2)) / K(1, 1);
+    float zNear = cam->getNearClipDistance();
+    float top = zNear * K(1, 2) / K(1, 1);
+    float left = -zNear * K(0, 2) / K(0, 0);
+    float right = zNear * (imsize.width - K(0, 2)) / K(0, 0);
+    float bottom = -zNear * (imsize.height - K(1, 2)) / K(1, 1);
 
     // use frustum extents instead of setFrustumOffset as the latter
     // assumes centered FOV, which is not the case
@@ -323,7 +340,7 @@ public:
 
     void setBackground(InputArray image)
     {
-        CV_Assert(image.type() == CV_8UC3, bgplane);
+        CV_Assert(bgplane);
 
         String name = sceneMgr->getName() + "_Background";
 
@@ -383,7 +400,12 @@ public:
     void removeEntity(const String& name) {
         SceneNode& node = _getSceneNode(sceneMgr, name);
         node.getAttachedObject(name)->detachFromParent();
+
+        // only one of the following will do something
+        sceneMgr->destroyLight(name);
         sceneMgr->destroyEntity(name);
+        sceneMgr->destroyCamera(name);
+
         sceneMgr->destroySceneNode(&node);
     }
 
@@ -695,20 +717,23 @@ void setMaterialProperty(const String& name, int prop, const Scalar& val)
 
 void setMaterialProperty(const String& name, int prop, const String& value)
 {
-    CV_Assert(prop == MATERIAL_TEXTURE, _app);
+    CV_Assert_N(prop >= MATERIAL_TEXTURE0, prop <= MATERIAL_TEXTURE3, _app);
 
     MaterialPtr mat = MaterialManager::getSingleton().getByName(name, RESOURCEGROUP_NAME);
     CV_Assert(mat);
 
     Pass* rpass = mat->getTechniques()[0]->getPasses()[0];
 
-    if (rpass->getTextureUnitStates().empty())
+    size_t texUnit = prop - MATERIAL_TEXTURE0;
+    CV_Assert(texUnit <= rpass->getTextureUnitStates().size());
+
+    if (rpass->getTextureUnitStates().size() <= texUnit)
     {
         rpass->createTextureUnitState(value);
         return;
     }
 
-    rpass->getTextureUnitStates()[0]->setTextureName(value);
+    rpass->getTextureUnitStates()[texUnit]->setTextureName(value);
 }
 
 static bool setShaderProperty(const GpuProgramParametersSharedPtr& params, const String& prop,
@@ -764,6 +789,14 @@ void setMaterialProperty(const String& name, const String& prop, const Scalar& v
 
     if(!set)
         CV_Error_(Error::StsBadArg, ("shader parameter named '%s' not found", prop.c_str()));
+}
+
+void updateTexture(const String& name, InputArray image)
+{
+    CV_Assert(_app);
+    TexturePtr tex = TextureManager::getSingleton().getByName(name, RESOURCEGROUP_NAME);
+    CV_Assert(tex);
+    _createTexture(name, image.getMat());
 }
 }
 }
