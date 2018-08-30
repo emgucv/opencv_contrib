@@ -46,9 +46,19 @@
 #include "precomp.hpp"
 
 #ifdef _MSC_VER
+#ifdef _M_ARM
+inline int popcnt(unsigned n) {
+	// Taken from http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+	n = n - ((n >> 1) & 0x55555555);
+	n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+	return ((n + ((n >> 4) & 0xF0F0F0F)) * 0x1010101) >> 24;
+	// ---
+}
+#else
 # include <intrin.h>
 # define popcnt __popcnt
 # pragma warning( disable : 4267 )
+#endif
 #else
 # define popcnt __builtin_popcount
 
