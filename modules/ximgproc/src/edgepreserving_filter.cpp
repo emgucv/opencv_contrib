@@ -36,10 +36,10 @@ void edgePreservingFilter(InputArray _src, OutputArray _dst, int d,
     int nChannel = src.channels();
 
     vector<double> pixel(nChannel, 0);
-    vector<vector<double>> line1(src.rows, pixel);
-    vector<vector<vector<double>>> weight(src.cols,
+    vector< vector<double> > line1(src.rows, pixel);
+    vector< vector< vector<double> > > weight(src.cols,
                                           line1); // global weights
-    vector<vector<vector<double>>> imageResult(
+    vector< vector< vector<double> > > imageResult(
         src.cols, line1); // global normalized image
 
     // do algorithm
@@ -58,7 +58,7 @@ void edgePreservingFilter(InputArray _src, OutputArray _dst, int d,
             cv::Scalar ArithmeticMean = cv::mean(subwindow);
 
             // compute pixelwise distance
-            vector<vector<double>> pixelwiseDist;
+            vector< vector<double> > pixelwiseDist;
 
             for (int subPosX = 0; subPosX < subwindow.cols;
                  subPosX++)
