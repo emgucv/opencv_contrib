@@ -35,7 +35,8 @@ protected:
             float x_max = buffer[k*nCol + 5]*inputShape.width;
             float y_max = buffer[k*nCol + 6]*inputShape.height;
 
-            CV_Assert(x_min < x_max, y_min < y_max);
+            CV_Assert(x_min < x_max);
+            CV_Assert(y_min < y_max);
 
             x_min = std::max(0.f, x_min);
             y_min = std::max(0.f, y_min);
