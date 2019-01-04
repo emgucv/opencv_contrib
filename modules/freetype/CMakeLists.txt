@@ -25,6 +25,11 @@ if( FREETYPE_FOUND AND HARFBUZZ_FOUND )
   ocv_define_module(freetype opencv_core opencv_imgproc WRAP python)
   ocv_target_link_libraries(${the_module} ${FREETYPE_LIBRARIES} ${HARFBUZZ_LIBRARIES})
   ocv_include_directories( ${FREETYPE_INCLUDE_DIRS} ${HARFBUZZ_INCLUDE_DIRS} )
+  
+  IF(ANDROID OR IOS OR WIN32)
+	export(TARGETS opencv_freetype freetype harfbuzz FILE opencv_freetype-exports.cmake)
+  ENDIF()
 else()
   ocv_module_disable(freetype)
 endif()
+
