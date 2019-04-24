@@ -287,7 +287,11 @@ QualityBRISQUE::QualityBRISQUE(const cv::String& model_file_path, const cv::Stri
     // construct data file path from OPENCV_DIR env var and quality subdir
     const auto get_data_path = [](const cv::String& fname)
     {
+#if WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP || defined(WINRT_10)
+		cv::String path;
+#else
         cv::String path{ std::getenv("OPENCV_DIR") };
+#endif
         return path.empty()
             ? path  // empty
             : path + "/testdata/contrib/quality/" + fname
