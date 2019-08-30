@@ -59,7 +59,7 @@
 #include "opencv2/core.hpp"
 
 #if defined(_MSC_VER)
-#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP || defined(_M_ARM)
+#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP || defined(_M_ARM) || defined(_M_ARM64)
 # include <bitset>
 # define POPCNT(A) std::bitset<32>(A).count()
 # define POPCNT64(A) std::bitset<64>(A).count()
