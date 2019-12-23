@@ -7,6 +7,7 @@
 
 #include "opencv2/cudaarithm.hpp"
 
+#if defined(HAVE_CUDA)
 #include <cuda_runtime.h>
 
 namespace cv { namespace cuda {
@@ -26,5 +27,6 @@ private:
 };
 
 } }
+#endif
 
 #endif // __CUDAARITHM_LUT_HPP__
