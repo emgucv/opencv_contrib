@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <ctime>
 
+//needed for uint64_t type
+#include <cstdint>
+
 using namespace std;
 namespace cv{
 namespace face{
