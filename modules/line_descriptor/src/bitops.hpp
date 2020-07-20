@@ -56,7 +56,6 @@ static inline UINT32 popcnt(UINT32 v)
 #else
 # include <intrin.h>
 # define popcnt __popcnt
-#endif
 # pragma warning( disable : 4267 )
 #endif
 #else
