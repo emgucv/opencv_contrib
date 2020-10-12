@@ -46,7 +46,7 @@
 #include "precomp.hpp"
 
 #ifdef _MSC_VER
-#if defined(_M_ARM) || defined(_M_ARM64)
+#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP || defined(_M_ARM) || defined(_M_ARM64)
 static inline UINT32 popcnt(UINT32 v)
 {
     v = v - ((v >> 1) & 0x55555555);
