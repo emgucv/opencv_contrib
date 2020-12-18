@@ -112,7 +112,7 @@ namespace rgbd
      * @param points a rows x cols x 3 matrix of CV_32F/CV64F or a rows x cols x 1 CV_U16S
      * @param normals a rows x cols x 3 matrix
      */
-    void
+    CV_WRAP_AS(apply) void
     operator()(InputArray points, OutputArray normals) const;
 
     /** Initializes some data that is cached for later computation
@@ -219,7 +219,7 @@ namespace rgbd
      * @param points a rows x cols x 3 matrix of CV_32F/CV64F or a rows x cols x 1 CV_U16S
      * @param depth a rows x cols matrix of the cleaned up depth
      */
-    void
+    CV_WRAP_AS(apply) void
     operator()(InputArray points, OutputArray depth) const;
 
     /** Initializes some data that is cached for later computation
@@ -312,16 +312,17 @@ namespace rgbd
   depthTo3d(InputArray depth, InputArray K, OutputArray points3d, InputArray mask = noArray());
 
   /** If the input image is of type CV_16UC1 (like the Kinect one), the image is converted to floats, divided
-   * by 1000 to get a depth in meters, and the values 0 are converted to std::numeric_limits<float>::quiet_NaN()
+   * by depth_factor to get a depth in meters, and the values 0 are converted to std::numeric_limits<float>::quiet_NaN()
    * Otherwise, the image is simply converted to floats
    * @param in the depth image (if given as short int CV_U, it is assumed to be the depth in millimeters
    *              (as done with the Microsoft Kinect), it is assumed in meters)
    * @param depth the desired output depth (floats or double)
    * @param out The rescaled float depth image
+   * @param depth_factor (optional) factor by which depth is converted to distance (by default = 1000.0 for Kinect sensor)
    */
   CV_EXPORTS_W
   void
-  rescaleDepth(InputArray in, int depth, OutputArray out);
+  rescaleDepth(InputArray in, int depth, OutputArray out, double depth_factor = 1000.0);
 
   /** Object that can compute planes in an image
    */
@@ -345,6 +346,25 @@ namespace rgbd
     {
     }
 
+    /** Constructor
+     * @param block_size The size of the blocks to look at for a stable MSE
+     * @param min_size The minimum size of a cluster to be considered a plane
+     * @param threshold The maximum distance of a point from a plane to belong to it (in meters)
+     * @param sensor_error_a coefficient of the sensor error. 0 by default, 0.0075 for a Kinect
+     * @param sensor_error_b coefficient of the sensor error. 0 by default
+     * @param sensor_error_c coefficient of the sensor error. 0 by default
+     * @param method The method to use to compute the planes.
+     */
+    RgbdPlane(int method, int block_size,
+              int min_size, double threshold, double sensor_error_a = 0,
+              double sensor_error_b = 0, double sensor_error_c = 0);
+
+    ~RgbdPlane();
+
+    CV_WRAP static Ptr<RgbdPlane> create(int method, int block_size, int min_size, double threshold,
+                                         double sensor_error_a = 0, double sensor_error_b = 0,
+                                         double sensor_error_c = 0);
+
     /** Find The planes in a depth image
      * @param points3d the 3d points organized like the depth image: rows x cols with 3 channels
      * @param normals the normals for every point in the depth image
@@ -353,7 +373,7 @@ namespace rgbd
      * @param plane_coefficients the coefficients of the corresponding planes (a,b,c,d) such that ax+by+cz+d=0, norm(a,b,c)=1
      *        and c < 0 (so that the normal points towards the camera)
      */
-    void
+    CV_WRAP_AS(apply) void
     operator()(InputArray points3d, InputArray normals, OutputArray mask,
                OutputArray plane_coefficients);
 
@@ -363,7 +383,7 @@ namespace rgbd
      *        and 255 if it does not belong to any plane
      * @param plane_coefficients the coefficients of the corresponding planes (a,b,c,d) such that ax+by+cz+d=0
      */
-    void
+    CV_WRAP_AS(apply) void
     operator()(InputArray points3d, OutputArray mask, OutputArray plane_coefficients);
 
     CV_WRAP int getBlockSize() const
@@ -545,7 +565,7 @@ namespace rgbd
     /** Method to compute a transformation from the source frame to the destination one.
      * Some odometry algorithms do not used some data of frames (eg. ICP does not use images).
      * In such case corresponding arguments can be set as empty Mat.
-     * The method returns true if all internal computions were possible (e.g. there were enough correspondences,
+     * The method returns true if all internal computations were possible (e.g. there were enough correspondences,
      * system of equations has a solution, etc) and resulting transformation satisfies some test if it's provided
      * by the Odometry inheritor implementation (e.g. thresholds for maximum translation and rotation).
      * @param srcImage Image data of the source frame (CV_8UC1)

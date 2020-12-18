@@ -4,7 +4,7 @@
 
 #include "precomp.hpp"
 #include "face_alignmentimpl.hpp"
-#include "opencv2/video/tracking.hpp"
+#include "opencv2/calib3d.hpp"
 #include <climits>
 
 using namespace std;
@@ -123,7 +123,7 @@ bool FacemarkKazemiImpl :: getRelativePixels(vector<Point2f> sample,vector<Point
         CV_Error(Error::StsBadArg, error_message);
     }
     Mat transform_mat;
-    transform_mat = estimateRigidTransform(meanshape,sample,false);
+    transform_mat = estimateAffinePartial2D(meanshape, sample);
     unsigned long index;
     for (unsigned long i = 0;i<pixel_coordinates.size();i++) {
         if(!nearest.empty())
@@ -219,9 +219,15 @@ void FacemarkKazemiImpl :: writeLeaf(ofstream& os, const vector<Point2f> &leaf)
     os.write((char*)&size, sizeof(size));
     os.write((char*)&leaf[0], leaf.size() * sizeof(Point2f));
 }
-void FacemarkKazemiImpl :: writeSplit(ofstream& os, splitr split)
+void FacemarkKazemiImpl :: writeSplit(ofstream& os, const splitr& vec)
 {
-    os.write((char*)&split, sizeof(split));
+    os.write((char*)&vec.index1, sizeof(vec.index1));
+    os.write((char*)&vec.index2, sizeof(vec.index2));
+    os.write((char*)&vec.thresh, sizeof(vec.thresh));
+    uint32_t dummy_ = 0;
+    os.write((char*)&dummy_, sizeof(dummy_)); // buggy original writer structure alignment
+    CV_CheckEQ((int)(sizeof(vec.index1) + sizeof(vec.index2) + sizeof(vec.thresh) + sizeof(dummy_)), 24, "Invalid build configuration");
+
 }
 void FacemarkKazemiImpl :: writeTree(ofstream &f,regtree tree)
 {

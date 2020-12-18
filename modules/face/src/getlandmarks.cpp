@@ -26,7 +26,12 @@ bool FacemarkKazemiImpl :: findNearestLandmarks( vector< vector<int> >& nearest)
 }
 void FacemarkKazemiImpl :: readSplit(ifstream& is, splitr &vec)
 {
-    is.read((char*)&vec, sizeof(splitr));
+    is.read((char*)&vec.index1, sizeof(vec.index1));
+    is.read((char*)&vec.index2, sizeof(vec.index2));
+    is.read((char*)&vec.thresh, sizeof(vec.thresh));
+    uint32_t dummy_ = 0;
+    is.read((char*)&dummy_, sizeof(dummy_)); // buggy writer structure alignment
+    CV_CheckEQ((int)(sizeof(vec.index1) + sizeof(vec.index2) + sizeof(vec.thresh) + sizeof(dummy_)), 24, "Invalid build configuration");
 }
 void FacemarkKazemiImpl :: readLeaf(ifstream& is, vector<Point2f> &leaf)
 {
@@ -163,15 +168,53 @@ void FacemarkKazemiImpl :: loadModel(String filename){
     f.close();
     isModelLoaded = true;
 }
-bool FacemarkKazemiImpl::fit(InputArray img, InputArray roi, OutputArrayOfArrays landmarks){
+
+/**
+ * @brief Copy the contents of a corners vector to an OutputArray, settings its size.
+ */
+static void _copyVector2Output(std::vector< std::vector< Point2f > > &vec, OutputArrayOfArrays out)
+{
+    out.create((int)vec.size(), 1, CV_32FC2);
+
+    if (out.isMatVector()) {
+        for (unsigned int i = 0; i < vec.size(); i++) {
+            out.create(68, 1, CV_32FC2, i);
+            Mat &m = out.getMatRef(i);
+            Mat(Mat(vec[i]).t()).copyTo(m);
+        }
+    }
+    else if (out.isUMatVector()) {
+        for (unsigned int i = 0; i < vec.size(); i++) {
+            out.create(68, 1, CV_32FC2, i);
+            UMat &m = out.getUMatRef(i);
+            Mat(Mat(vec[i]).t()).copyTo(m);
+        }
+    }
+    else if (out.kind() == _OutputArray::STD_VECTOR_VECTOR) {
+        for (unsigned int i = 0; i < vec.size(); i++) {
+            out.create(68, 1, CV_32FC2, i);
+            Mat m = out.getMat(i);
+            Mat(Mat(vec[i]).t()).copyTo(m);
+        }
+    }
+    else {
+        CV_Error(cv::Error::StsNotImplemented,
+            "Only Mat vector, UMat vector, and vector<vector> OutputArrays are currently supported.");
+    }
+}
+
+
+bool FacemarkKazemiImpl::fit(InputArray img, InputArray roi, OutputArrayOfArrays _landmarks)
+{
     if(!isModelLoaded){
         String error_message = "No model loaded. Aborting....";
         CV_Error(Error::StsBadArg, error_message);
         return false;
     }
     Mat image  = img.getMat();
-    std::vector<Rect> & faces = *(std::vector<Rect>*)roi.getObj();
-    std::vector<std::vector<Point2f> > & shapes = *(std::vector<std::vector<Point2f> >*) landmarks.getObj();
+    Mat roimat = roi.getMat();
+    std::vector<Rect> faces = roimat.reshape(4, roimat.rows);
+    std::vector<std::vector<Point2f> > shapes;
     shapes.resize(faces.size());
 
     if(image.empty()){
@@ -238,6 +281,7 @@ bool FacemarkKazemiImpl::fit(InputArray img, InputArray roi, OutputArrayOfArrays
                 shapes[e][j].y=float(D.at<double>(1,0));
         }
     }
+    _copyVector2Output(shapes, _landmarks);
     return true;
 }
 }//cv

@@ -76,6 +76,12 @@ namespace cv { namespace
 /////////////////////////////////////////////////////////////////////////////
 //////// projectPoints
 void cv::omnidir::projectPoints(InputArray objectPoints, OutputArray imagePoints,
+                const Affine3d& affine, InputArray K, double xi, InputArray D, OutputArray jacobian)
+{
+    projectPoints(objectPoints, imagePoints, affine.rvec(), affine.translation(), K, xi, D, jacobian);
+}
+
+void cv::omnidir::projectPoints(InputArray objectPoints, OutputArray imagePoints,
                 InputArray rvec, InputArray tvec, InputArray K, double xi, InputArray D, OutputArray jacobian)
 {
 
@@ -532,7 +538,7 @@ void cv::omnidir::initUndistortRectifyMap(InputArray K, InputArray D, InputArray
 void cv::omnidir::undistortImage(InputArray distorted, OutputArray undistorted,
     InputArray K, InputArray D, InputArray xi, int flags, InputArray Knew, const Size& new_size, InputArray R)
 {
-    Size size = new_size.area() != 0 ? new_size : distorted.size();
+    Size size = new_size.empty() ? distorted.size() : new_size;
 
     cv::Mat map1, map2;
     omnidir::initUndistortRectifyMap(K, D, xi, R, Knew, size, CV_16SC2, map1, map2, flags);

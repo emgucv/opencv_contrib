@@ -48,6 +48,14 @@
 #include <fstream>
 #include <queue>
 
+#ifdef HAVE_TESSERACT
+#if !defined(USE_STD_NAMESPACE)
+#define USE_STD_NAMESPACE
+#endif
+#include <tesseract/baseapi.h>
+#include <tesseract/resultiterator.h>
+#endif
+
 namespace cv
 {
 namespace text
@@ -262,7 +270,7 @@ public:
   #ifdef HAVE_TESSERACT
         tess.SetVariable("tessedit_char_whitelist", char_whitelist.c_str());
   #else
-        (void)char_whitelist;
+        CV_UNUSED(char_whitelist);
   #endif
     }
 };

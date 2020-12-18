@@ -25,7 +25,7 @@ int main( int argc, char** argv ){
   }
 
   // declares all required variables
-  Rect2d roi;
+  Rect roi;
   Mat frame;
 
   //! [param]
@@ -102,7 +102,7 @@ void sobelExtractor(const Mat img, const Rect roi, Mat& feat){
     //! [insideimage]
 
     patch=img(region).clone();
-    cvtColor(patch,patch, CV_BGR2GRAY);
+    cvtColor(patch,patch, COLOR_BGR2GRAY);
 
     //! [padding]
     // add some padding to compensate when the patch is outside image border
@@ -123,7 +123,6 @@ void sobelExtractor(const Mat img, const Rect roi, Mat& feat){
     //! [sobel]
 
     //! [postprocess]
-    feat.convertTo(feat,CV_64F);
     feat=feat/255.0-0.5; // normalize to range -0.5 .. 0.5
     //! [postprocess]
 }

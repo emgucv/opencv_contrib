@@ -106,7 +106,7 @@ struct MACEImpl CV_FINAL : MACE {
         complexInput.copyTo(dftImg(Rect(0,0,IMGSIZE,IMGSIZE)));
 
         dft(dftImg, dftImg);
-        return dftImg;
+        return std::move(dftImg);
     }
 
 
@@ -119,9 +119,9 @@ struct MACEImpl CV_FINAL : MACE {
         int IMGSIZE_2X = IMGSIZE * 2;
         int TOTALPIXEL = IMGSIZE_2X * IMGSIZE_2X;
 
-        Mat_<Vec2d> D(TOTALPIXEL, 1, 0.0);
-        Mat_<Vec2d> S(TOTALPIXEL, size, 0.0);
-        Mat_<Vec2d> SPLUS(size, TOTALPIXEL, 0.0);
+        Mat_<double> D(TOTALPIXEL, 1, 0.0);
+        Mat_<Vec2d>  S(TOTALPIXEL, size, Vec2d(0,0));
+        Mat_<Vec2d>  SPLUS(size, TOTALPIXEL, Vec2d(0,0));
         for (int i=0; i<size; i++) {
             Mat_<Vec2d> dftImg = isdft ? images[i] : dftImage(images[i]);
             for (int l=0; l<IMGSIZE_2X; l++) {
@@ -130,27 +130,24 @@ struct MACEImpl CV_FINAL : MACE {
                     Vec2d s = dftImg(l, m);
                     S(j, i) = s;
                     SPLUS(i, j) = Vec2d(s[0], -s[1]);
-                    D(j, 0)[0] += (s[0]*s[0]) + (s[1]*s[1]);
+                    D(j, 0) += (s[0]*s[0]) + (s[1]*s[1]);
                 }
             }
         }
+        Mat_<double> DSQ; cv::sqrt(D, DSQ);
+        Mat_<double> DINV = TOTALPIXEL * size / DSQ;
 
-        Mat sq; cv::sqrt(D, sq);
-        Mat_<Vec2d> DINV = TOTALPIXEL * size / sq;
-        Mat_<Vec2d> DINV_S(TOTALPIXEL, size, 0.0);
-        Mat_<Vec2d> SPLUS_DINV(size, TOTALPIXEL, 0.0);
+        Mat_<Vec2d>  DINV_S(TOTALPIXEL, size);
+        Mat_<Vec2d>  SPLUS_DINV(size, TOTALPIXEL);
         for (int l=0; l<size; l++) {
             for (int m=0; m<TOTALPIXEL; m++) {
-                SPLUS_DINV(l, m)[0] = SPLUS(l,m)[0] * DINV(m,0)[0];
-                SPLUS_DINV(l, m)[1] = SPLUS(l,m)[1] * DINV(m,0)[1];
-                DINV_S(m, l)[0] = S(m,l)[0] * DINV(m,0)[0];
-                DINV_S(m, l)[1] = S(m,l)[1] * DINV(m,0)[1];
+                DINV_S(m, l)     = S(m,l)     * DINV(m,0);
+                SPLUS_DINV(l, m) = SPLUS(l,m) * DINV(m,0);
             }
         }
 
         Mat_<Vec2d> SPLUS_DINV_S = SPLUS_DINV * S;
-        Mat_<Vec2d> SPLUS_DINV_S_INV(size, size);
-        Mat_<double> SPLUS_DINV_S_INV_1(2*size, 2*size);
+        Mat_<double> SPLUS_DINV_S_INV_1(2*size, 2*size, 0.0);
         for (int l=0; l<size; l++) {
             for (int m=0; m<size; m++) {
                 Vec2d s = SPLUS_DINV_S(l, m);
@@ -162,6 +159,7 @@ struct MACEImpl CV_FINAL : MACE {
         }
         invert(SPLUS_DINV_S_INV_1, SPLUS_DINV_S_INV_1);
 
+        Mat_<Vec2d> SPLUS_DINV_S_INV(size, size);
         for (int l=0; l<size; l++) {
             for (int m=0; m<size; m++) {
                 SPLUS_DINV_S_INV(l, m) = Vec2d(SPLUS_DINV_S_INV_1(l,m), SPLUS_DINV_S_INV_1(l,m+size));
@@ -169,7 +167,7 @@ struct MACEImpl CV_FINAL : MACE {
         }
 
         Mat_<Vec2d> Hmace = DINV_S * SPLUS_DINV_S_INV;
-        Mat_<Vec2d> C(size,1, Vec2d(1,0));
+        Mat_<Vec2d> C(size, 1, Vec2d(1,0));
         maceFilter = Mat(Hmace * C).reshape(2,IMGSIZE_2X);
     }
 
@@ -206,52 +204,18 @@ struct MACEImpl CV_FINAL : MACE {
         minMaxLoc(re, &m1, &M1, 0, 0);
         double peakCorrPlaneEnergy = M1 / sqrt(sum(re)[0]);
         re -= m1;
-        double value=0;
-        double num=0;
-        int rad_1=int(floor((double)(45.0/64.0)*(double)IMGSIZE));
-        int rad_2=int(floor((double)(27.0/64.0)*(double)IMGSIZE));
-        // cache a few pow's and sqrts
-        std::vector<double> r2(IMGSIZE_2X);
-        Mat_<double> radtab(IMGSIZE_2X,IMGSIZE_2X);
-        for (int l=0; l<IMGSIZE_2X; l++) {
-            r2[l] = (l-IMGSIZE) * (l-IMGSIZE);
-        }
-        for (int l=0; l<IMGSIZE_2X; l++) {
-            for (int m=l+1; m<IMGSIZE_2X; m++) {
-                double rad = sqrt(r2[m] + r2[l]);
-                radtab(l,m) = radtab(m,l) = rad;
-            }
-        }
-        // mean of the sidelobe area:
-        for (int l=0; l<IMGSIZE_2X; l++) {
-            for (int m=0; m<IMGSIZE_2X; m++) {
-                double rad = radtab(l,m);
-                if (rad < rad_1) {
-                    if (rad > rad_2) {
-                        value += re(l,m);
-                        num++;
-                    }
-                }
-            }
-        }
-        value /= num;
-        // normalize it
-        double std2=0;
-        for (int l=0; l<IMGSIZE_2X; l++) {
-            for (int m=0; m<IMGSIZE_2X; m++) {
-                double rad = radtab(l,m);
-                if (rad < rad_1) {
-                    if (rad > rad_2) {
-                        double d = (value - re(l,m));
-                        std2 += d * d;
-                    }
-                }
-            }
-        }
-        std2 /= num;
-        std2 = sqrt(std2);
-        double sca = re(IMGSIZE, IMGSIZE);
-        double peakToSideLobeRatio = (sca - value) / std2;
+
+        // circle mask for the sidelobe area
+        Mat mask(IMGSIZE_2X, IMGSIZE_2X, CV_8U, Scalar(0));
+        int rad_1 = int(floor((double)(45.0/64.0)*(double)IMGSIZE));
+        int rad_2 = int(floor((double)(27.0/64.0)*(double)IMGSIZE));
+        circle(mask, Point(IMGSIZE,IMGSIZE), rad_1, Scalar(255), -1);
+        circle(mask, Point(IMGSIZE,IMGSIZE), rad_2, Scalar(0), -1);
+
+        Scalar mean, dev;
+        meanStdDev(re, mean, dev, mask);
+        double peak = re(IMGSIZE, IMGSIZE);
+        double peakToSideLobeRatio = (peak - mean[0]) / dev[0];
 
         return 100.0 * peakToSideLobeRatio * peakCorrPlaneEnergy;
     }

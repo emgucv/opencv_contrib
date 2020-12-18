@@ -90,10 +90,18 @@ struct RenderInvoker : ParallelLoopBody
     float depthFactor;
 };
 
-struct CubeSpheresScene
+struct Scene
+{
+    virtual ~Scene() {}
+    static Ptr<Scene> create(int nScene, Size sz, Matx33f _intr, float _depthFactor);
+    virtual Mat depth(Affine3f pose) = 0;
+    virtual std::vector<Affine3f> getPoses() = 0;
+};
+
+struct CubeSpheresScene : Scene
 {
     const int framesPerCycle = 32;
-    const int nCycles = 1;
+    const float nCycles = 0.25f;
     const Affine3f startPose = Affine3f(Vec3f(-0.5f, 0.f, 0.f), Vec3f(2.1f, 1.4f, -2.1f));
 
     CubeSpheresScene(Size sz, Matx33f _intr, float _depthFactor) :
@@ -125,7 +133,7 @@ struct CubeSpheresScene
         return res;
     }
 
-    Mat depth(Affine3f pose)
+    Mat depth(Affine3f pose) override
     {
         Mat_<float> frame(frameSize);
         Reprojector reproj(intr);
@@ -133,13 +141,13 @@ struct CubeSpheresScene
         Range range(0, frame.rows);
         parallel_for_(range, RenderInvoker<CubeSpheresScene>(frame, pose, reproj, depthFactor));
 
-        return frame;
+        return std::move(frame);
     }
 
-    std::vector<Affine3f> getPoses()
+    std::vector<Affine3f> getPoses() override
     {
         std::vector<Affine3f> poses;
-        for(int i = 0; i < framesPerCycle*nCycles; i++)
+        for(int i = 0; i < (int)(framesPerCycle*nCycles); i++)
         {
             float angle = (float)(CV_2PI*i/framesPerCycle);
             Affine3f pose;
@@ -160,10 +168,10 @@ struct CubeSpheresScene
 };
 
 
-struct RotatingScene
+struct RotatingScene : Scene
 {
-    const int framesPerCycle = 64;
-    const int nCycles = 1;
+    const int framesPerCycle = 32;
+    const float nCycles = 0.5f;
     const Affine3f startPose = Affine3f(Vec3f(-1.f, 0.f, 0.f), Vec3f(1.5f, 2.f, -1.5f));
 
     RotatingScene(Size sz, Matx33f _intr, float _depthFactor) :
@@ -221,7 +229,7 @@ struct RotatingScene
         return res;
     }
 
-    Mat depth(Affine3f pose)
+    Mat depth(Affine3f pose) override
     {
         Mat_<float> frame(frameSize);
         Reprojector reproj(intr);
@@ -229,10 +237,10 @@ struct RotatingScene
         Range range(0, frame.rows);
         parallel_for_(range, RenderInvoker<RotatingScene>(frame, pose, reproj, depthFactor));
 
-        return frame;
+        return std::move(frame);
     }
 
-    std::vector<Affine3f> getPoses()
+    std::vector<Affine3f> getPoses() override
     {
         std::vector<Affine3f> poses;
         for(int i = 0; i < framesPerCycle*nCycles; i++)
@@ -258,83 +266,116 @@ struct RotatingScene
 
 Mat_<float> RotatingScene::randTexture(256, 256);
 
+Ptr<Scene> Scene::create(int nScene, Size sz, Matx33f _intr, float _depthFactor)
+{
+    if(nScene == 0)
+        return makePtr<RotatingScene>(sz, _intr, _depthFactor);
+    else
+        return makePtr<CubeSpheresScene>(sz, _intr, _depthFactor);
+}
+
 static const bool display = false;
 
+void flyTest(bool hiDense, bool inequal, bool hashTsdf = false)
+{
+    Ptr<kinfu::Params> params;
+    if(hiDense)
+        params = kinfu::Params::defaultParams();
+    else
+        params = kinfu::Params::coarseParams();
+
+    if(hashTsdf)
+        params = kinfu::Params::hashTSDFParams(!hiDense);
+
+    if(inequal)
+    {
+        params->volumeDims[0] += 32;
+        params->volumeDims[1] -= 32;
+    }
+
+    Ptr<Scene> scene = Scene::create(hiDense, params->frameSize, params->intr, params->depthFactor);
+
+    Ptr<kinfu::KinFu> kf = kinfu::KinFu::create(params);
+
+    std::vector<Affine3f> poses = scene->getPoses();
+    Affine3f startPoseGT = poses[0], startPoseKF;
+    Affine3f pose, kfPose;
+    for(size_t i = 0; i < poses.size(); i++)
+    {
+        pose = poses[i];
+
+        Mat depth = scene->depth(pose);
+
+        ASSERT_TRUE(kf->update(depth));
+
+        kfPose = kf->getPose();
+        if(i == 0)
+            startPoseKF = kfPose;
+
+        pose = (  startPoseGT.inv() * pose  )*startPoseKF;
+
+        if(display)
+        {
+            imshow("depth", depth*(1.f/params->depthFactor/4.f));
+            Mat rendered;
+            kf->render(rendered);
+            imshow("render", rendered);
+            waitKey(10);
+        }
+    }
+
+    double rvecThreshold = hiDense ? 0.01 : 0.02;
+    ASSERT_LT(cv::norm(kfPose.rvec() - pose.rvec()), rvecThreshold);
+    double poseThreshold = hiDense ? 0.03 : 0.1;
+    ASSERT_LT(cv::norm(kfPose.translation() - pose.translation()), poseThreshold);
+}
+
+
+#ifdef OPENCV_ENABLE_NONFREE
 TEST( KinectFusion, lowDense )
+#else
+TEST(KinectFusion, DISABLED_lowDense)
+#endif
 {
-    Ptr<kinfu::Params> params = kinfu::Params::coarseParams();
-
-    RotatingScene scene(params->frameSize, params->intr, params->depthFactor);
-
-    Ptr<kinfu::KinFu> kf = kinfu::KinFu::create(params);
-
-    std::vector<Affine3f> poses = scene.getPoses();
-    Affine3f startPoseGT = poses[0], startPoseKF;
-    Affine3f pose, kfPose;
-    for(size_t i = 0; i < poses.size(); i++)
-    {
-        pose = poses[i];
-
-        Mat depth = scene.depth(pose);
-
-        ASSERT_TRUE(kf->update(depth));
-
-        kfPose = kf->getPose();
-        if(i == 0)
-            startPoseKF = kfPose;
-
-        pose = (  startPoseGT.inv() * pose  )*startPoseKF;
-
-        if(display)
-        {
-            imshow("depth", depth*(1.f/params->depthFactor/4.f));
-            Mat rendered;
-            kf->render(rendered);
-            imshow("render", rendered);
-            waitKey(10);
-        }
-    }
-
-    ASSERT_LT(cv::norm(kfPose.rvec() - pose.rvec()), 0.01);
-    ASSERT_LT(cv::norm(kfPose.translation() - pose.translation()), 0.1);
+    flyTest(false, false);
 }
 
+#ifdef OPENCV_ENABLE_NONFREE
 TEST( KinectFusion, highDense )
+#else
+TEST(KinectFusion, DISABLED_highDense)
+#endif
 {
-    Ptr<kinfu::Params> params = kinfu::Params::defaultParams();
-    CubeSpheresScene scene(params->frameSize, params->intr, params->depthFactor);
-
-    Ptr<kinfu::KinFu> kf = kinfu::KinFu::create(params);
-
-    std::vector<Affine3f> poses = scene.getPoses();
-    Affine3f startPoseGT = poses[0], startPoseKF;
-    Affine3f pose, kfPose;
-    for(size_t i = 0; i < poses.size(); i++)
-    {
-        pose = poses[i];
-
-        Mat depth = scene.depth(pose);
-
-        ASSERT_TRUE(kf->update(depth));
-
-        kfPose = kf->getPose();
-        if(i == 0)
-            startPoseKF = kfPose;
-
-        pose = (  startPoseGT.inv() * pose  )*startPoseKF;
-
-        if(display)
-        {
-            imshow("depth", depth*(1.f/params->depthFactor/4.f));
-            Mat rendered;
-            kf->render(rendered);
-            imshow("render", rendered);
-            waitKey(10);
-        }
-    }
-
-    ASSERT_LT(cv::norm(kfPose.rvec() - pose.rvec()), 0.01);
-    ASSERT_LT(cv::norm(kfPose.translation() - pose.translation()), 0.03);
+    flyTest(true, false);
 }
 
+#ifdef OPENCV_ENABLE_NONFREE
+TEST( KinectFusion, inequal )
+#else
+TEST(KinectFusion, DISABLED_inequal)
+#endif
+{
+    flyTest(false, true);
+}
+
+#ifdef HAVE_OPENCL
+#ifdef OPENCV_ENABLE_NONFREE
+TEST( KinectFusion, OCL )
+#else
+TEST(KinectFusion, DISABLED_OCL)
+#endif
+{
+    cv::ocl::setUseOpenCL(false);
+    flyTest(false, false);
+    cv::ocl::setUseOpenCL(true);
+    flyTest(false, false);
+}
+#endif
+
+TEST( KinectFusion, DISABLED_hashTsdf )
+{
+    flyTest(false, false, true);
+    //! hashTSDF does not support non-equal volumeDims
+    flyTest(true, false, true);
+}
 }} // namespace

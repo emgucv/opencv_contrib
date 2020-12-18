@@ -46,18 +46,21 @@
 #include "precomp.hpp"
 
 #ifdef _MSC_VER
-#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP || defined(_M_ARM)
-# define popcnt(A) std::bitset<32>(A).count()
-#elif __ICL //Windows version of intel compiler
-# define popcnt(A) std::bitset<32>(A).count()
+#if defined(_M_ARM) || defined(_M_ARM64) || (WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP) || defined(__ICL) 
+static inline UINT32 popcnt(UINT32 v)
+{
+    v = v - ((v >> 1) & 0x55555555);
+    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+    return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
+}
 #else
 # include <intrin.h>
 # define popcnt __popcnt
 #endif
 # pragma warning( disable : 4267 )
+#endif
 #else
 # define popcnt __builtin_popcount
-
 #endif
 
 /* LUT */

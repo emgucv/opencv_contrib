@@ -294,7 +294,7 @@ bool EstimateHomography2DFromCorrespondences(
     x2_normalized = x2;
   }
 
-  // Assume algebraic estiation always suceeds,
+  // Assume algebraic estiation always succeeds,
   Homography2DFromCorrespondencesLinear(x1_normalized, x2_normalized, H);
 
   // Denormalize the homography matrix.
@@ -318,7 +318,7 @@ bool EstimateHomography2DFromCorrespondences(
             HomographySymmetricGeometricCostFunctor,
             4,  // num_residuals
             9>(homography_symmetric_geometric_cost_function),
-        NULL,
+        nullptr,
         H->data());
   }
 

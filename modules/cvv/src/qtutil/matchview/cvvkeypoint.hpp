@@ -52,7 +52,7 @@ class CVVKeyPoint : public QGraphicsObject,public cv::KeyPoint
 	 * @brief boundingRect
 	 * @return the boundingRect
 	 */
-	QRectF boundingRect() const;
+    QRectF boundingRect() const CV_OVERRIDE;
 
 	/**
 	 * @brief returns the keypoint
@@ -65,7 +65,7 @@ class CVVKeyPoint : public QGraphicsObject,public cv::KeyPoint
 	 * @brief the paint function.
 	 */
 	void paint(QPainter *painter, const QStyleOptionGraphicsItem *,
-		   QWidget *);
+           QWidget *) CV_OVERRIDE;
 
 	/**
 	 * @brief returns true if this keypoint is in the visble area of its
@@ -93,7 +93,7 @@ class CVVKeyPoint : public QGraphicsObject,public cv::KeyPoint
 
 signals:
 	/**
-	 * @brief this signal will be emited when the imagepoint in the scene
+	 * @brief this signal will be emitted when the imagepoint in the scene
 	 * has changed
 	 * @param visible it is true if this keypoint is in the visibleArea
 	 */

@@ -7,7 +7,7 @@
  *
  * There are still serveral lacks for this experimental implementation:
  * 1.The interpolation of sub-pixel mentioned in article was not implemented yet;
- * 2.A comparision with original libSurf.so shows that the hessian detector is not a 100% match to their implementation;
+ * 2.A comparison with original libSurf.so shows that the hessian detector is not a 100% match to their implementation;
  * 3.Due to above reasons, I recommanded the original one for study and reuse;
  *
  * However, the speed of this implementation is something comparable to original one.
@@ -847,7 +847,7 @@ struct SURFInvoker : ParallelLoopBody
 
             // unit vector is essential for contrast invariance
             vec = descriptors->ptr<float>(k);
-            float scale = (float)(1./(std::sqrt(square_mag) + DBL_EPSILON));
+            float scale = (float)(1./(std::sqrt(square_mag) + FLT_EPSILON));
             for( kk = 0; kk < dsize; kk++ )
                 vec[kk] *= scale;
         }
@@ -944,6 +944,19 @@ void SURF_Impl::detectAndCompute(InputArray _img, InputArray _mask,
             integral(mask1, msum, CV_32S);
         }
         fastHessianDetector( sum, msum, keypoints, nOctaves, nOctaveLayers, (float)hessianThreshold );
+        if (!mask.empty())
+        {
+            for (size_t i = 0; i < keypoints.size(); )
+            {
+                Point pt(keypoints[i].pt);
+                if (mask.at<uchar>(pt.y, pt.x) == 0)
+                {
+                    keypoints.erase(keypoints.begin() + i);
+                    continue; // keep "i"
+                }
+                i++;
+            }
+        }
     }
 
     int i, j, N = (int)keypoints.size();

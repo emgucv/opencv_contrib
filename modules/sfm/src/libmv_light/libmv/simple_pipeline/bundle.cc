@@ -402,7 +402,7 @@ void EuclideanBundlePointsOnly(const DistortionModelType distortion_model,
                 marker.x,
                 marker.y,
                 1.0)),
-        NULL,
+        nullptr,
         ceres_intrinsics,
         current_camera_R_t,
         &point->X(0));
@@ -430,7 +430,10 @@ void EuclideanBundlePointsOnly(const DistortionModelType distortion_model,
 
 #ifdef _OPENMP
   options.num_threads = omp_get_max_threads();
+#if CERES_VERSION_MAJOR <= 1 && CERES_VERSION_MINOR <= 13
+  // deprecated since Ceres 1.14.0
   options.num_linear_solver_threads = omp_get_max_threads();
+#endif
 #endif
 
   // Solve!
@@ -467,7 +470,7 @@ void EuclideanBundleCommonIntrinsics(
   // N-th element denotes whether track N is a constant zero-weigthed track.
   vector<bool> zero_weight_tracks_flags(tracks.MaxTrack() + 1, true);
 
-  // Residual blocks with 10 parameters are unwieldly with Ceres, so pack the
+  // Residual blocks with 10 parameters are unwieldy with Ceres, so pack the
   // intrinsics into a single block and rely on local parameterizations to
   // control which intrinsics are allowed to vary.
   double ceres_intrinsics[OFFSET_MAX];
@@ -600,7 +603,10 @@ void EuclideanBundleCommonIntrinsics(
 
 #ifdef _OPENMP
   options.num_threads = omp_get_max_threads();
+#if CERES_VERSION_MAJOR <= 1 && CERES_VERSION_MINOR <= 13
+  // deprecated since Ceres 1.14.0
   options.num_linear_solver_threads = omp_get_max_threads();
+#endif
 #endif
 
   // Solve!

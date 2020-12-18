@@ -72,13 +72,13 @@ class OverviewGroupSubtable : public QWidget
 	/**
 	 * @brief Set the displayed rows.
 	 * @note This method does some optimisations to only fully rebuild all
-	 * rows if neccessary.
+	 * rows if necessary.
 	 * @param newGroup new group of rows that will be displayed
 	 */
 	void setRowGroup(stfl::ElementGroup<OverviewTableRow> &newGroup);
 	
 protected:
-	void resizeEvent(QResizeEvent *event);
+    void resizeEvent(QResizeEvent *event) CV_OVERRIDE;
 
 private slots:
 	void rowClicked(int row, int collumn);

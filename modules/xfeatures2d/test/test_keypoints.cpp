@@ -121,12 +121,6 @@ TEST(Features2d_Detector_Keypoints_SURF, validation)
     CV_FeatureDetectorKeypointsTest test(xfeatures2d::SURF::create());
     test.safe_run();
 }
-
-TEST(Features2d_Detector_Keypoints_SIFT, validation)
-{
-    CV_FeatureDetectorKeypointsTest test(xfeatures2d::SIFT::create());
-    test.safe_run();
-}
 #endif // NONFREE
 
 
@@ -140,6 +134,12 @@ TEST(Features2d_Detector_Keypoints_Star, validation)
 TEST(Features2d_Detector_Keypoints_MSDDetector, validation)
 {
     CV_FeatureDetectorKeypointsTest test(xfeatures2d::MSDDetector::create());
+    test.safe_run();
+}
+
+TEST(Features2d_Detector_Keypoints_TBMRDetector, validation)
+{
+    CV_FeatureDetectorKeypointsTest test(xfeatures2d::TBMR::create());
     test.safe_run();
 }
 

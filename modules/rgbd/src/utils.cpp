@@ -6,12 +6,13 @@
 
 // This code is also subject to the license terms in the LICENSE_WillowGarage.md file found in this module's directory
 
+#include "precomp.hpp"
 #include "utils.hpp"
 
 namespace cv
 {
 namespace rgbd
-{    
+{
   /** If the input image is of type CV_16UC1 (like the Kinect one), the image is converted to floats, divided
    * by 1000 to get a depth in meters, and the values 0 are converted to std::numeric_limits<float>::quiet_NaN()
    * Otherwise, the image is simply converted to floats
@@ -21,7 +22,7 @@ namespace rgbd
    * @param out_out The rescaled float depth image
    */
   void
-  rescaleDepth(InputArray in_in, int depth, OutputArray out_out)
+  rescaleDepth(InputArray in_in, int depth, OutputArray out_out, double depth_factor)
   {
     cv::Mat in = in_in.getMat();
     CV_Assert(in.type() == CV_64FC1 || in.type() == CV_32FC1 || in.type() == CV_16UC1 || in.type() == CV_16SC1);
@@ -33,13 +34,13 @@ namespace rgbd
     cv::Mat out = out_out.getMat();
     if (in_depth == CV_16U)
     {
-      in.convertTo(out, depth, 1 / 1000.0); //convert to float so that it is in meters
+      in.convertTo(out, depth, 1 / depth_factor); //convert to float so that it is in meters
       cv::Mat valid_mask = in == std::numeric_limits<ushort>::min(); // Should we do std::numeric_limits<ushort>::max() too ?
       out.setTo(std::numeric_limits<float>::quiet_NaN(), valid_mask); //set a$
     }
     if (in_depth == CV_16S)
     {
-      in.convertTo(out, depth, 1 / 1000.0); //convert to float so tha$
+      in.convertTo(out, depth, 1 / depth_factor); //convert to float so tha$
       cv::Mat valid_mask = (in == std::numeric_limits<short>::min()) | (in == std::numeric_limits<short>::max()); // Should we do std::numeric_limits<ushort>::max() too ?
       out.setTo(std::numeric_limits<float>::quiet_NaN(), valid_mask); //set a$
     }
@@ -49,38 +50,6 @@ namespace rgbd
 } // namespace rgbd
 
 namespace kinfu {
-
-#if PRINT_TIME
-
-ScopeTime::ScopeTime(std::string name_, bool _enablePrint) :
-    name(name_), enablePrint(_enablePrint)
-{
-    start = (double)cv::getTickCount();
-    nested++;
-}
-
-ScopeTime::~ScopeTime()
-{
-    double time_ms =  ((double)cv::getTickCount() - start)*1000.0/cv::getTickFrequency();
-    if(enablePrint)
-    {
-        std::string spaces(nested, '-');
-        std::cout << spaces << "Time(" << name << ") = " << time_ms << " ms" << std::endl;
-    }
-    nested--;
-}
-
-int ScopeTime::nested  = 0;
-
-#else
-
-ScopeTime::ScopeTime(std::string /*name_*/, bool /*_enablePrint = true*/)
-{ }
-
-ScopeTime::~ScopeTime()
-{ }
-
-#endif
 
 } // namespace kinfu
 } // namespace cv

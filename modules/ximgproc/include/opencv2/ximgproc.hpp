@@ -57,6 +57,8 @@
 #include "ximgproc/ridgefilter.hpp"
 #include "ximgproc/brightedges.hpp"
 #include "ximgproc/run_length_morphology.hpp"
+#include "ximgproc/edgepreserving_filter.hpp"
+#include "ximgproc/color_match.hpp"
 
 
 /** @defgroup ximgproc Extended Image Processing
@@ -94,7 +96,7 @@ i.e. algorithms which somehow takes into account pixel affinities in natural ima
     Run length encoded images are stored in standard opencv images. Images have a single column of cv::Point3i elements. The number of rows is the number of run + 1. The first row contains
     the size of the original (not encoded) image.  For the runs the following mapping is used (x: column begin, y: column end (last column), z: row).
 
-    The size of the original image is required for compatiblity with the imgproc functions when the boundary handling requires that pixel outside the image boundary are
+    The size of the original image is required for compatibility with the imgproc functions when the boundary handling requires that pixel outside the image boundary are
     "on".
 
     @}
@@ -151,12 +153,14 @@ normally a value between 0 and 1 that is multiplied with the standard deviation 
 the mean.
 @param binarizationMethod Binarization method to use. By default, Niblack's technique is used.
 Other techniques can be specified, see cv::ximgproc::LocalBinarizationMethods.
-
+@param r The user-adjustable parameter used by Sauvola's technique. This is the dynamic range
+of standard deviation.
 @sa  threshold, adaptiveThreshold
  */
 CV_EXPORTS_W void niBlackThreshold( InputArray _src, OutputArray _dst,
                                     double maxValue, int type,
-                                    int blockSize, double k, int binarizationMethod = BINARIZATION_NIBLACK );
+                                    int blockSize, double k, int binarizationMethod = BINARIZATION_NIBLACK,
+                                    double r = 128 );
 
 /** @brief Applies a binary blob thinning operation, to achieve a skeletization of the input image.
 
@@ -168,7 +172,7 @@ The function transforms a binary blob image into a skeletized form using the tec
  */
 CV_EXPORTS_W void thinning( InputArray src, OutputArray dst, int thinningType = THINNING_ZHANGSUEN);
 
-/** @brief Performs anisotropic diffusian on an image.
+/** @brief Performs anisotropic diffusion on an image.
 
  The function applies Perona-Malik anisotropic diffusion to an image. This is the solution to the partial differential equation:
 
@@ -182,7 +186,7 @@ CV_EXPORTS_W void thinning( InputArray src, OutputArray dst, int thinningType = 
 
  \f[ c\left(\|\nabla I\|\right)={\frac {1}{1+\left({\frac  {\|\nabla I\|}{K}}\right)^{2}}} \f]
 
- @param src Grayscale Source image.
+ @param src Source image with 3 channels.
  @param dst Destination image of the same size and the same number of channels as src .
  @param alpha The amount of time to step forward by on each iteration (normally, it's between 0 and 1).
  @param K sensitivity to the edges

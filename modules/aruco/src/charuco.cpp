@@ -53,7 +53,7 @@ using namespace std;
  */
 void CharucoBoard::draw(Size outSize, OutputArray _img, int marginSize, int borderBits) {
 
-    CV_Assert(outSize.area() > 0);
+    CV_Assert(!outSize.empty());
     CV_Assert(marginSize >= 0);
 
     _img.create(outSize, CV_8UC1);
@@ -270,50 +270,6 @@ static int _filterCornersWithoutMinMarkers(const Ptr<CharucoBoard> &_board,
     return (int)_filteredCharucoIds.total();
 }
 
-
-/**
-  * ParallelLoopBody class for the parallelization of the charuco corners subpixel refinement
-  * Called from function _selectAndRefineChessboardCorners()
-  */
-class CharucoSubpixelParallel : public ParallelLoopBody {
-    public:
-    CharucoSubpixelParallel(const Mat *_grey, vector< Point2f > *_filteredChessboardImgPoints,
-                            vector< Size > *_filteredWinSizes, const Ptr<DetectorParameters> &_params)
-        : grey(_grey), filteredChessboardImgPoints(_filteredChessboardImgPoints),
-          filteredWinSizes(_filteredWinSizes), params(_params) {}
-
-    void operator()(const Range &range) const CV_OVERRIDE {
-        const int begin = range.start;
-        const int end = range.end;
-
-        for(int i = begin; i < end; i++) {
-            vector< Point2f > in;
-            in.push_back((*filteredChessboardImgPoints)[i]);
-            Size winSize = (*filteredWinSizes)[i];
-            if(winSize.height == -1 || winSize.width == -1)
-                winSize = Size(params->cornerRefinementWinSize, params->cornerRefinementWinSize);
-
-            cornerSubPix(*grey, in, winSize, Size(),
-                         TermCriteria(TermCriteria::MAX_ITER | TermCriteria::EPS,
-                                      params->cornerRefinementMaxIterations,
-                                      params->cornerRefinementMinAccuracy));
-
-            (*filteredChessboardImgPoints)[i] = in[0];
-        }
-    }
-
-    private:
-    CharucoSubpixelParallel &operator=(const CharucoSubpixelParallel &); // to quiet MSVC
-
-    const Mat *grey;
-    vector< Point2f > *filteredChessboardImgPoints;
-    vector< Size > *filteredWinSizes;
-    const Ptr<DetectorParameters> &params;
-};
-
-
-
-
 /**
   * @brief From all projected chessboard corners, select those inside the image and apply subpixel
   * refinement. Returns number of valid corners.
@@ -345,31 +301,33 @@ static int _selectAndRefineChessboardCorners(InputArray _allCorners, InputArray 
 
     // corner refinement, first convert input image to grey
     Mat grey;
-    if(_image.getMat().type() == CV_8UC3)
-        cvtColor(_image.getMat(), grey, COLOR_BGR2GRAY);
+    if(_image.type() == CV_8UC3)
+        cvtColor(_image, grey, COLOR_BGR2GRAY);
     else
-        _image.getMat().copyTo(grey);
+        grey = _image.getMat();
 
     const Ptr<DetectorParameters> params = DetectorParameters::create(); // use default params for corner refinement
 
     //// For each of the charuco corners, apply subpixel refinement using its correspondind winSize
-    // for(unsigned int i=0; i<filteredChessboardImgPoints.size(); i++) {
-    //    vector<Point2f> in;
-    //    in.push_back(filteredChessboardImgPoints[i]);
-    //    Size winSize = filteredWinSizes[i];
-    //    if(winSize.height == -1 || winSize.width == -1)
-    //        winSize = Size(params.cornerRefinementWinSize, params.cornerRefinementWinSize);
-    //    cornerSubPix(grey, in, winSize, Size(),
-    //                 TermCriteria(TermCriteria::MAX_ITER | TermCriteria::EPS,
-    //                              params->cornerRefinementMaxIterations,
-    //                              params->cornerRefinementMinAccuracy));
-    //    filteredChessboardImgPoints[i] = in[0];
-    //}
+    parallel_for_(Range(0, (int)filteredChessboardImgPoints.size()), [&](const Range& range) {
+        const int begin = range.start;
+        const int end = range.end;
 
-    // this is the parallel call for the previous commented loop (result is equivalent)
-    parallel_for_(
-        Range(0, (int)filteredChessboardImgPoints.size()),
-        CharucoSubpixelParallel(&grey, &filteredChessboardImgPoints, &filteredWinSizes, params));
+        for (int i = begin; i < end; i++) {
+            vector<Point2f> in;
+            in.push_back(filteredChessboardImgPoints[i]);
+            Size winSize = filteredWinSizes[i];
+            if (winSize.height == -1 || winSize.width == -1)
+                winSize = Size(params->cornerRefinementWinSize, params->cornerRefinementWinSize);
+
+            cornerSubPix(grey, in, winSize, Size(),
+                         TermCriteria(TermCriteria::MAX_ITER | TermCriteria::EPS,
+                                      params->cornerRefinementMaxIterations,
+                                      params->cornerRefinementMinAccuracy));
+
+            filteredChessboardImgPoints[i] = in[0];
+        }
+    });
 
     // parse output
     Mat(filteredChessboardImgPoints).copyTo(_selectedCorners);
@@ -494,6 +452,9 @@ static int _interpolateCornersCharucoLocalHom(InputArrayOfArrays _markerCorners,
     // calculate local homographies for each marker
     vector< Mat > transformations;
     transformations.resize(nMarkers);
+
+    vector< bool > validTransform(nMarkers, false);
+
     for(unsigned int i = 0; i < nMarkers; i++) {
         vector< Point2f > markerObjPoints2D;
         int markerId = _markerIds.getMat().at< int >(i);
@@ -506,6 +467,10 @@ static int _interpolateCornersCharucoLocalHom(InputArrayOfArrays _markerCorners,
                 Point2f(_board->objPoints[boardIdx][j].x, _board->objPoints[boardIdx][j].y);
 
         transformations[i] = getPerspectiveTransform(markerObjPoints2D, _markerCorners.getMat(i));
+
+        // set transform as valid if transformation is non-singular
+        double det = determinant(transformations[i]);
+        validTransform[i] = std::abs(det) > 1e-6;
     }
 
     unsigned int nCharucoCorners = (unsigned int)_board->chessboardCorners.size();
@@ -526,7 +491,9 @@ static int _interpolateCornersCharucoLocalHom(InputArrayOfArrays _markerCorners,
                     break;
                 }
             }
-            if(markerIdx != -1) {
+            if (markerIdx != -1 &&
+                validTransform[markerIdx])
+            {
                 vector< Point2f > in, out;
                 in.push_back(objPoint2D);
                 perspectiveTransform(in, out, transformations[markerIdx]);
@@ -616,7 +583,7 @@ void drawDetectedCornersCharuco(InputOutputArray _image, InputArray _charucoCorn
 
 /**
   * Check if a set of 3d points are enough for calibration. Z coordinate is ignored.
-  * Only axis paralel lines are considered
+  * Only axis parallel lines are considered
   */
 static bool _arePointsEnoughForPoseEstimation(const vector< Point3f > &points) {
 
@@ -656,7 +623,7 @@ static bool _arePointsEnoughForPoseEstimation(const vector< Point3f > &points) {
   */
 bool estimatePoseCharucoBoard(InputArray _charucoCorners, InputArray _charucoIds,
                               const Ptr<CharucoBoard> &_board, InputArray _cameraMatrix, InputArray _distCoeffs,
-                              OutputArray _rvec, OutputArray _tvec, bool useExtrinsicGuess) {
+                              InputOutputArray _rvec, InputOutputArray _tvec, bool useExtrinsicGuess) {
 
     CV_Assert((_charucoCorners.getMat().total() == _charucoIds.getMat().total()));
 
@@ -754,10 +721,10 @@ void detectCharucoDiamond(InputArray _image, InputArrayOfArrays _markerCorners,
 
     // convert input image to grey
     Mat grey;
-    if(_image.getMat().type() == CV_8UC3)
-        cvtColor(_image.getMat(), grey, COLOR_BGR2GRAY);
+    if(_image.type() == CV_8UC3)
+        cvtColor(_image, grey, COLOR_BGR2GRAY);
     else
-        _image.getMat().copyTo(grey);
+        grey = _image.getMat();
 
     // for each of the detected markers, try to find a diamond
     for(unsigned int i = 0; i < _markerIds.total(); i++) {
@@ -928,6 +895,61 @@ void drawDetectedDiamonds(InputOutputArray _image, InputArrayOfArrays _corners,
             putText(_image, s.str(), cent, FONT_HERSHEY_SIMPLEX, 0.5, textColor, 2);
         }
     }
+}
+
+/**
+   @param board layout of ChArUco board.
+ * @param image charucoIds list of identifiers for each corner in charucoCorners.
+ * @return bool value, 1 (true) for detected corners form a line, 0 for non-linear.
+      solvePnP will fail if the corners are collinear (true).
+  * Check that the set of charuco markers in _charucoIds does not identify a straight line on
+    the charuco board.  Axis parallel, as well as diagonal and other straight lines detected.
+  */
+ bool testCharucoCornersCollinear(const Ptr<CharucoBoard> &_board, InputArray _charucoIds){
+
+    unsigned int nCharucoCorners = (unsigned int)_charucoIds.getMat().total();
+
+    if (nCharucoCorners <= 2)
+        return true;
+
+    // only test if there are 3 or more corners
+    CV_Assert( _board->chessboardCorners.size() >= _charucoIds.getMat().total());
+
+    Vec<double, 3> point0( _board->chessboardCorners[_charucoIds.getMat().at< int >(0)].x,
+            _board->chessboardCorners[_charucoIds.getMat().at< int >(0)].y,
+            1);
+
+    Vec<double, 3> point1( _board->chessboardCorners[_charucoIds.getMat().at< int >(1)].x,
+            _board->chessboardCorners[_charucoIds.getMat().at< int >(1)].y,
+            1);
+
+    // create a line from the first two points.
+    Vec<double, 3> testLine = point0.cross(point1);
+
+    Vec<double, 3> testPoint(0, 0, 1);
+
+    double divisor = sqrt(testLine[0]*testLine[0] + testLine[1]*testLine[1]);
+
+    CV_Assert( divisor != 0);
+
+    // normalize the line with normal
+    testLine /= divisor;
+
+    double dotProduct;
+    for (unsigned int i = 2; i < nCharucoCorners; i++){
+        testPoint(0) = _board->chessboardCorners[_charucoIds.getMat().at< int >(i)].x;
+        testPoint(1) = _board->chessboardCorners[_charucoIds.getMat().at< int >(i)].y;
+
+        // if testPoint is on testLine, dotProduct will be zero (or very, very close)
+        dotProduct = testPoint.dot(testLine);
+
+        if (std::abs(dotProduct) > 1e-6){
+            return false;
+        }
+    }
+
+    // no points found that were off of testLine, return true that all points collinear.
+    return true;
 }
 }
 }

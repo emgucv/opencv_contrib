@@ -50,14 +50,14 @@ int main( int argc, char** argv ){
       for(size_t npos=0,pos=0,ctr=0;ctr<4;ctr++){
         npos=initBoundingBox.find_first_of(',',pos);
         if(npos==string::npos && ctr<3){
-           printf("bounding box should be given in format \"x1,y1,x2,y2\",where x's and y's are integer cordinates of opposed corners of bdd box\n");
+           printf("bounding box should be given in format \"x1,y1,x2,y2\",where x's and y's are integer coordinates of opposed corners of bdd box\n");
            printf("got: %s\n",initBoundingBox.substr(pos,string::npos).c_str());
            printf("manual selection of bounding box will be employed\n");
            break;
         }
         int num=atoi(initBoundingBox.substr(pos,(ctr==3)?(string::npos):(npos-pos)).c_str());
         if(num<=0){
-           printf("bounding box should be given in format \"x1,y1,x2,y2\",where x's and y's are integer cordinates of opposed corners of bdd box\n");
+           printf("bounding box should be given in format \"x1,y1,x2,y2\",where x's and y's are integer coordinates of opposed corners of bdd box\n");
            printf("got: %s\n",initBoundingBox.substr(pos,npos-pos).c_str());
            printf("manual selection of bounding box will be employed\n");
            break;
@@ -88,12 +88,12 @@ int main( int argc, char** argv ){
   namedWindow( "Tracking API", 1 );
 
   Mat image;
-  Rect2d boundingBox;
+  Rect boundingBox;
   bool paused = false;
 
   //instantiates the specific Tracker
   Ptr<Tracker> tracker = createTrackerByName(tracker_algorithm);
-  if( tracker == NULL )
+  if (!tracker)
   {
     cout << "***Error in the instantiation of the tracker...***\n";
     return -1;
@@ -134,11 +134,7 @@ int main( int argc, char** argv ){
       if( !initialized )
       {
         //initializes the tracker
-        if( !tracker->init( frame, boundingBox ) )
-        {
-          cout << "***Could not initialize tracker...***\n";
-          return -1;
-        }
+        tracker->init(frame, boundingBox);
         initialized = true;
       }
       else if( initialized )

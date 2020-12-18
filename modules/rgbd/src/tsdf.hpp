@@ -2,46 +2,119 @@
 // It is subject to the license terms in the LICENSE file found in the top-level directory
 // of this distribution and at http://opencv.org/license.html
 
-// This code is also subject to the license terms in the LICENSE_KinectFusion.md file found in this module's directory
+// This code is also subject to the license terms in the LICENSE_KinectFusion.md file found in this
+// module's directory
 
 #ifndef __OPENCV_KINFU_TSDF_H__
 #define __OPENCV_KINFU_TSDF_H__
 
-#include "precomp.hpp"
+#include <opencv2/rgbd/volume.hpp>
+
 #include "kinfu_frame.hpp"
+#include "utils.hpp"
 
-namespace cv {
-namespace kinfu {
-
-
-class TSDFVolume
+namespace cv
 {
-public:
-    // dimension in voxels, size in meters
-    TSDFVolume(int _res, float _size, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-               float _raycastStepFactor);
+namespace kinfu
+{
+// TODO: Optimization possible:
+// * TsdfType can be FP16
+// * WeightType can be uint16
 
-    virtual void integrate(cv::Ptr<Frame> depth, float depthFactor, cv::Affine3f cameraPose, cv::kinfu::Intr intrinsics) = 0;
-    virtual void raycast(cv::Affine3f cameraPose, cv::kinfu::Intr intrinsics, cv::Size frameSize, int pyramidLevels,
-                         cv::Ptr<FrameGenerator> frameGenerator, cv::Ptr<Frame> frame) const = 0;
+typedef int8_t TsdfType;
+typedef uchar WeightType;
 
-    virtual void fetchPointsNormals(cv::OutputArray points, cv::OutputArray normals) const = 0;
-    virtual void fetchNormals(cv::InputArray points, cv::OutputArray _normals) const = 0;
-
-    virtual void reset() = 0;
-
-    virtual ~TSDFVolume() { }
-
-    float edgeSize;
-    int edgeResolution;
-    int maxWeight;
-    cv::Affine3f pose;
+struct TsdfVoxel
+{
+    TsdfType tsdf;
+    WeightType weight;
 };
 
-cv::Ptr<TSDFVolume> makeTSDFVolume(cv::kinfu::Params::PlatformType t,
-                                   int _res, float _size, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-                                   float _raycastStepFactor);
+typedef Vec<uchar, sizeof(TsdfVoxel)> VecTsdfVoxel;
 
-} // namespace kinfu
-} // namespace cv
+class TSDFVolume : public Volume
+{
+   public:
+    // dimension in voxels, size in meters
+    TSDFVolume(float _voxelSize, Matx44f _pose, float _raycastStepFactor, float _truncDist,
+               int _maxWeight, Point3i _resolution, bool zFirstMemOrder = true);
+    virtual ~TSDFVolume() = default;
+
+   public:
+
+    Point3i volResolution;
+    WeightType maxWeight;
+
+    Point3f volSize;
+    float truncDist;
+    Vec4i volDims;
+    Vec8i neighbourCoords;
+};
+
+class TSDFVolumeCPU : public TSDFVolume
+{
+   public:
+    // dimension in voxels, size in meters
+    TSDFVolumeCPU(float _voxelSize, cv::Matx44f _pose, float _raycastStepFactor, float _truncDist,
+                  int _maxWeight, Vec3i _resolution, bool zFirstMemOrder = true);
+
+    virtual void integrate(InputArray _depth, float depthFactor, const Matx44f& cameraPose,
+                           const kinfu::Intr& intrinsics, const int frameId = 0) override;
+    virtual void raycast(const Matx44f& cameraPose, const kinfu::Intr& intrinsics, const Size& frameSize,
+                         OutputArray points, OutputArray normals) const override;
+
+    virtual void fetchNormals(InputArray points, OutputArray _normals) const override;
+    virtual void fetchPointsNormals(OutputArray points, OutputArray normals) const override;
+
+    virtual void reset() override;
+    virtual TsdfVoxel at(const Vec3i& volumeIdx) const;
+
+    float interpolateVoxel(const cv::Point3f& p) const;
+    Point3f getNormalVoxel(const cv::Point3f& p) const;
+
+#if USE_INTRINSICS
+    float interpolateVoxel(const v_float32x4& p) const;
+    v_float32x4 getNormalVoxel(const v_float32x4& p) const;
+#endif
+    Vec4i volStrides;
+    Vec6f frameParams;
+    Mat pixNorms;
+    // See zFirstMemOrder arg of parent class constructor
+    // for the array layout info
+    // Consist of Voxel elements
+    Mat volume;
+};
+
+#ifdef HAVE_OPENCL
+class TSDFVolumeGPU : public TSDFVolume
+{
+   public:
+    // dimension in voxels, size in meters
+    TSDFVolumeGPU(float _voxelSize, Matx44f _pose, float _raycastStepFactor, float _truncDist,
+                  int _maxWeight, Point3i _resolution);
+
+    virtual void integrate(InputArray _depth, float depthFactor, const Matx44f& cameraPose,
+                           const kinfu::Intr& intrinsics, const int frameId = 0) override;
+    virtual void raycast(const Matx44f& cameraPose, const kinfu::Intr& intrinsics, const Size& frameSize,
+                         OutputArray _points, OutputArray _normals) const override;
+
+    virtual void fetchPointsNormals(OutputArray points, OutputArray normals) const override;
+    virtual void fetchNormals(InputArray points, OutputArray normals) const override;
+
+    virtual void reset() override;
+
+    Vec6f frameParams;
+    UMat pixNorms;
+    // See zFirstMemOrder arg of parent class constructor
+    // for the array layout info
+    // Array elem is CV_32FC2, read as (float, int)
+    // TODO: optimization possible to (fp16, int16), see Voxel definition
+    UMat volume;
+};
+#endif
+Ptr<TSDFVolume> makeTSDFVolume(float _voxelSize, Matx44f _pose, float _raycastStepFactor,
+                               float _truncDist, int _maxWeight, Point3i _resolution);
+Ptr<TSDFVolume> makeTSDFVolume(const VolumeParams& _params);
+}  // namespace kinfu
+}  // namespace cv
 #endif

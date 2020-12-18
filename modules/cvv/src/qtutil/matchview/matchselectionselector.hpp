@@ -11,7 +11,7 @@
 namespace cvv{ namespace qtutil{
 
 /**
- * @brief this class can use diffrent MatchSelection
+ * @brief this class can use different MatchSelection
  * you can register functions which take a std::vector<cv::DMatch> as argument.
  */
 class MatchSelectionSelector:public MatchSelection,public RegisterHelper<MatchSelection,std::vector<cv::DMatch>>{
@@ -28,7 +28,7 @@ public:
 	 * @brief select matches of the given selection
 	 * @return the selected matches
 	 */
-	std::vector<cv::DMatch> select(const std::vector<cv::DMatch>& selection);
+    std::vector<cv::DMatch> select(const std::vector<cv::DMatch>& selection) CV_OVERRIDE;
 
 public slots:
 	/**

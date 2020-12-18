@@ -35,7 +35,7 @@ public:
 	/**
 	 * @brief set the settings if this match is selected
 	 */
-	virtual void setSettings(CVVMatch &match);
+    virtual void setSettings(CVVMatch &match) CV_OVERRIDE;
 
 	/**
 	 * @brief add the given MatchSettingsSelector to the list
@@ -110,7 +110,7 @@ public slots:
 signals:
 
 	/**
-	 * @brief this signal will be emited when the selection was changed.
+	 * @brief this signal will be emitted when the selection was changed.
 	 * it can be used for syncronisation with other selector
 	 */
 	void updateSelection(const std::vector<cv::DMatch> &selection);

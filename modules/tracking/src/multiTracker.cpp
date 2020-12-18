@@ -39,15 +39,22 @@
 //
 //M*/
 
+#include "precomp.hpp"
 #include "multiTracker.hpp"
 
-namespace cv
-{
+#include "opencv2/tracking/tracking_legacy.hpp"
+
+namespace cv {
+namespace legacy {
+inline namespace tracking {
+
+using namespace impl;
+
 	//Multitracker
     bool MultiTracker_Alt::addTarget(InputArray image, const Rect2d& boundingBox, Ptr<Tracker> tracker_algorithm)
 	{
         Ptr<Tracker> tracker = tracker_algorithm;
-		if (tracker == NULL)
+		if (!tracker)
 			return false;
 
 		if (!tracker->init(image, boundingBox))
@@ -127,6 +134,7 @@ namespace cv
 #endif
 			detect_all(imageForDetector, image_blurred, tmpCandidates, detectorResults, detect_flgs, trackers);
 
+		bool success = false;
 		for (int k = 0; k < targetNum; k++)
 		{
 			//TLD Tracker data extraction
@@ -174,10 +182,11 @@ namespace cv
 
 				data->confident = false;
 				data->failedLastTime = true;
-				return false;
+				continue;
 			}
 			else
 			{
+				success = true;
 				boundingBoxes[k] = candidates[k][it - candidatesRes[k].begin()];
 				data->failedLastTime = false;
 				if (trackerNeedsReInit[k] || it != candidatesRes[k].begin())
@@ -244,15 +253,21 @@ namespace cv
 
 		}
 
-		return true;
+		return success;
 	}
 
+}}  // namespace
+
+
+inline namespace tracking {
+namespace impl {
+
 	void detect_all(const Mat& img, const Mat& imgBlurred, std::vector<Rect2d>& res, std::vector < std::vector < tld::TLDDetector::LabeledPatch > > &patches, std::vector<bool> &detect_flgs,
-		std::vector<Ptr<Tracker> > &trackers)
+		std::vector<Ptr<legacy::Tracker> > &trackers)
 	{
 		//TLD Tracker data extraction
-		Tracker* trackerPtr = trackers[0];
-		cv::tld::TrackerTLDImpl* tracker = static_cast<tld::TrackerTLDImpl*>(trackerPtr);
+		legacy::Tracker* trackerPtr = trackers[0];
+		tld::TrackerTLDImpl* tracker = static_cast<tld::TrackerTLDImpl*>(trackerPtr);
 		//TLD Model Extraction
 		tld::TrackerTLDModel* tldModel = ((tld::TrackerTLDModel*)static_cast<TrackerModel*>(tracker->getModel()));
 		Size initSize = tldModel->getMinSize();
@@ -443,11 +458,11 @@ namespace cv
 
 #ifdef HAVE_OPENCL
 	void ocl_detect_all(const Mat& img, const Mat& imgBlurred, std::vector<Rect2d>& res, std::vector < std::vector < tld::TLDDetector::LabeledPatch > > &patches, std::vector<bool> &detect_flgs,
-		std::vector<Ptr<Tracker> > &trackers)
+		std::vector<Ptr<legacy::Tracker> > &trackers)
 	{
 		//TLD Tracker data extraction
-		Tracker* trackerPtr = trackers[0];
-		cv::tld::TrackerTLDImpl* tracker = static_cast<tld::TrackerTLDImpl*>(trackerPtr);
+		legacy::Tracker* trackerPtr = trackers[0];
+		tld::TrackerTLDImpl* tracker = static_cast<tld::TrackerTLDImpl*>(trackerPtr);
 		//TLD Model Extraction
 		tld::TrackerTLDModel* tldModel = ((tld::TrackerTLDModel*)static_cast<TrackerModel*>(tracker->getModel()));
 		Size initSize = tldModel->getMinSize();
@@ -654,4 +669,4 @@ namespace cv
 	}
 #endif
 
-}
+}}}  // namespace

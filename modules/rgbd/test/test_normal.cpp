@@ -182,7 +182,7 @@ protected:
             std::cout << std::endl << "*** FALS" << std::endl;
             errors[0][0] = 0.006f;
             errors[0][1] = 0.03f;
-            errors[1][0] = 0.00008f;
+            errors[1][0] = 0.0001f;
             errors[1][1] = 0.02f;
             break;
           case 1:
@@ -439,6 +439,17 @@ TEST(Rgbd_Plane, compute)
 {
   CV_RgbdPlaneTest test;
   test.safe_run();
+}
+
+TEST(Rgbd_Plane, regression_2309_valgrind_check)
+{
+    Mat points(640, 480, CV_32FC3, Scalar::all(0));
+    rgbd::RgbdPlane plane_detector;
+    plane_detector.setBlockSize(9);  // Note, 640%9 is 1 and 480%9 is 3
+
+    Mat mask;
+    std::vector<cv::Vec4f> planes;
+    plane_detector(points, mask, planes);  // Will corrupt memory; valgrind gets triggered
 }
 
 }} // namespace
