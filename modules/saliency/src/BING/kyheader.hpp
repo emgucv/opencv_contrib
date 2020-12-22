@@ -58,6 +58,22 @@
 
 #include "opencv2/core.hpp"
 
+#if defined(_MSC_VER)
+#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP || defined(_M_ARM)
+# include <bitset>
+# define POPCNT(A) std::bitset<32>(A).count()
+# define POPCNT64(A) std::bitset<64>(A).count()
+#elif __ICL //Windows version of intel compiler
+# include <bitset>
+# define POPCNT(A) std::bitset<32>(A).count()
+# define POPCNT64(A) std::bitset<64>(A).count()
+#else
+# include <intrin.h>
+# define POPCNT(x) __popcnt(x)
+# define POPCNT64(x) (__popcnt((unsigned)(x)) + __popcnt((unsigned)((uint64_t)(x) >> 32)))
+#endif
+#endif
+
 #define CV_VERSION_ID CVAUX_STR(CV_MAJOR_VERSION) CVAUX_STR(CV_MINOR_VERSION) CVAUX_STR(CV_SUBMINOR_VERSION)
 #ifdef _DEBUG
 #define cvLIB(name) "opencv_" name CV_VERSION_ID "d"
