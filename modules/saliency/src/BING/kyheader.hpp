@@ -245,6 +245,10 @@ inline int popcnt_byte( uint32_t u )
 #if defined(_M_ARM) || defined(_M_ARM64)
 # define POPCNT(x) popcnt((x))
 # define POPCNT64(x) popcnt64((x))
+#elif (defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP)) || __ICL //Windows version of intel compiler
+# include <bitset>
+# define POPCNT(A) std::bitset<32>(A).count()
+# define POPCNT64(A) std::bitset<64>(A).count()
 #else
 # include <intrin.h>
 # define POPCNT(x) __popcnt(x)
