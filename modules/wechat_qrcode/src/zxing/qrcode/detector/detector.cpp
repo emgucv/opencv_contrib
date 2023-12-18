@@ -117,7 +117,7 @@ Ref<DetectorResult> Detector::getResultViaAlignment(int patternIdx, int alignmen
     Ref<BitMatrix> bits(sampleGrid(image_, possibleDimension, transform, err_handler));
     if (err_handler.ErrCode()) return Ref<DetectorResult>();
 
-    ArrayRef<Ref<ResultPoint> > corrners(new Array<Ref<ResultPoint> >(4));
+    ArrayRef<Ref<ResultPoint> > corners(new Array<Ref<ResultPoint> >(4));
     vector<float> points(8, 0.0f);
     points[0] = 0.0f;
     points[1] = possibleDimension;  // bottomLeft
@@ -128,12 +128,12 @@ Ref<DetectorResult> Detector::getResultViaAlignment(int patternIdx, int alignmen
     points[6] = possibleDimension;
     points[7] = possibleDimension;  // bottomRight
     transform->transformPoints(points);
-    corrners[0].reset(Ref<FinderPattern>(new FinderPattern(points[0], points[1], 0)));
-    corrners[1].reset(Ref<FinderPattern>(new FinderPattern(points[2], points[3], 0)));
-    corrners[2].reset(Ref<FinderPattern>(new FinderPattern(points[4], points[5], 0)));
-    corrners[3].reset(Ref<FinderPattern>(new FinderPattern(points[6], points[7], 0)));
+    corners[0].reset(Ref<FinderPattern>(new FinderPattern(points[0], points[1], 0)));
+    corners[1].reset(Ref<FinderPattern>(new FinderPattern(points[2], points[3], 0)));
+    corners[2].reset(Ref<FinderPattern>(new FinderPattern(points[4], points[5], 0)));
+    corners[3].reset(Ref<FinderPattern>(new FinderPattern(points[6], points[7], 0)));
 
-    Ref<DetectorResult> result(new DetectorResult(bits, corrners, possibleDimension));
+    Ref<DetectorResult> result(new DetectorResult(bits, corners, possibleDimension));
     return result;
 }
 
@@ -684,7 +684,7 @@ int Detector::fitLine(vector<Ref<ResultPoint> > &oldPoints, float &k, float &b, 
     int num = fitPoints.size();
     if (num < 2) return -1;
 
-    double x = 0, y = 0, xx = 0, xy = 0, yy = 0, tem = 0;
+    double x = 0, y = 0, xx = 0, xy = 0, tem = 0;
     for (int i = 0; i < num; i++) {
         int point_x = fitPoints[i]->getX();
         int point_y = fitPoints[i]->getY();
@@ -692,7 +692,6 @@ int Detector::fitLine(vector<Ref<ResultPoint> > &oldPoints, float &k, float &b, 
         y += point_y;
         xx += point_x * point_x;
         xy += point_x * point_y;
-        yy += point_y * point_y;
     }
 
     tem = xx * num - x * x;

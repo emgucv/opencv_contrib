@@ -54,20 +54,18 @@ using namespace cv::cudacodec::detail;
 
 static std::string fourccToString(int fourcc)
 {
-    union {
-        int u32;
-        unsigned char c[4];
-    } i32_c;
-    i32_c.u32 = fourcc;
-    return cv::format("%c%c%c%c",
-        (i32_c.c[0] >= ' ' && i32_c.c[0] < 128) ? i32_c.c[0] : '?',
-        (i32_c.c[1] >= ' ' && i32_c.c[1] < 128) ? i32_c.c[1] : '?',
-        (i32_c.c[2] >= ' ' && i32_c.c[2] < 128) ? i32_c.c[2] : '?',
-        (i32_c.c[3] >= ' ' && i32_c.c[3] < 128) ? i32_c.c[3] : '?');
+    char str[5] = {'\0', '\0', '\0', '\0'};
+    for (int i = 0; i < 4; i++) {
+        char c = (char)(fourcc >> i*8);
+        str[i] = ' ' <= c && c < 128 ? c : '?';
+    }
+    return std::string(str);
 }
 
+// handle old FFmpeg backend - remove when windows shared library is updated
+#ifdef _WIN32
 static
-Codec FourccToCodec(int codec)
+Codec FourccToCodecWin32Old(int codec)
 {
     switch (codec)
     {
@@ -100,9 +98,34 @@ Codec FourccToCodec(int codec)
     case CV_FOURCC_MACRO('a', 'v', '0', '1'): // fallthru
     case CV_FOURCC_MACRO('A', 'V', '0', '1'): return AV1;
     default:
+        return NumCodecs;
+    }
+}
+#endif
+
+static
+Codec FourccToCodec(int codec)
+{
+#ifdef _WIN32 // handle old FFmpeg backend - remove when windows shared library is updated
+    Codec win32OldCodec = FourccToCodecWin32Old(codec);
+    if(win32OldCodec != NumCodecs)
+        return win32OldCodec;
+#endif
+    switch (codec)
+    {
+    case CV_FOURCC_MACRO('m', 'p', 'g', '1'): return MPEG1;
+    case CV_FOURCC_MACRO('m', 'p', 'g', '2'): return MPEG2;
+    case CV_FOURCC_MACRO('F', 'M', 'P', '4'): return MPEG4;
+    case CV_FOURCC_MACRO('W', 'V', 'C', '1'): return VC1;
+    case CV_FOURCC_MACRO('h', '2', '6', '4'): return H264;
+    case CV_FOURCC_MACRO('h', 'e', 'v', 'c'): return HEVC;
+    case CV_FOURCC_MACRO('M', 'J', 'P', 'G'): return JPEG;
+    case CV_FOURCC_MACRO('V', 'P', '8', '0'): return VP8;
+    case CV_FOURCC_MACRO('V', 'P', '9', '0'): return VP9;
+    case CV_FOURCC_MACRO('A', 'V', '0', '1'): return AV1;
+    default:
         break;
     }
-
     std::string msg = cv::format("Unknown codec FOURCC: 0x%08X (%s)", codec, fourccToString(codec).c_str());
     CV_LOG_WARNING(NULL, msg);
     CV_Error(Error::StsUnsupportedFormat, msg);
@@ -163,7 +186,6 @@ cv::cudacodec::detail::FFmpegVideoSource::FFmpegVideoSource(const String& fname,
 
     int codec = (int)cap.get(CAP_PROP_FOURCC);
     int pixelFormat = (int)cap.get(CAP_PROP_CODEC_PIXEL_FORMAT);
-
     format_.codec = FourccToCodec(codec);
     format_.height = cap.get(CAP_PROP_FRAME_HEIGHT);
     format_.width = cap.get(CAP_PROP_FRAME_WIDTH);
@@ -192,6 +214,10 @@ void cv::cudacodec::detail::FFmpegVideoSource::updateFormat(const FormatInfo& vi
 
 bool cv::cudacodec::detail::FFmpegVideoSource::get(const int propertyId, double& propertyVal) const
 {
+    propertyVal = cap.get(propertyId);
+    if (propertyVal != 0.)
+        return true;
+
     CV_Assert(videoCaptureParams.size() % 2 == 0);
     for (std::size_t i = 0; i < videoCaptureParams.size(); i += 2) {
         if (videoCaptureParams.at(i) == propertyId) {
@@ -199,6 +225,7 @@ bool cv::cudacodec::detail::FFmpegVideoSource::get(const int propertyId, double&
             return true;
         }
     }
+
     return false;
 }
 
