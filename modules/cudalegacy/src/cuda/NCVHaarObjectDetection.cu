@@ -64,9 +64,8 @@
 
 #include "opencv2/opencv_modules.hpp"
 
-#ifdef HAVE_OPENCV_OBJDETECT
-#  include "opencv2/objdetect.hpp"
-//#  include "opencv2/objdetect/objdetect_c.h"
+#ifdef HAVE_OPENCV_XOBJDETECT
+#  include "opencv2/xobjdetect.hpp"
 #endif
 
 #include "opencv2/cudalegacy/NCV.hpp"
@@ -193,7 +192,7 @@ __global__ void applyHaarClassifierAnchorParallel(cv::cudev::TexturePtr<Ncv32u> 
             if (tbDoAtomicCompaction) bInactiveThread = true; else return;
         }
 
-        if (!tbDoAtomicCompaction || tbDoAtomicCompaction && !bInactiveThread)
+        if (!tbDoAtomicCompaction || (tbDoAtomicCompaction && !bInactiveThread))
         {
             outMaskVal = d_inMask[maskOffset];
             y_offs = outMaskVal >> 16;
@@ -210,7 +209,7 @@ __global__ void applyHaarClassifierAnchorParallel(cv::cudev::TexturePtr<Ncv32u> 
             if (tbDoAtomicCompaction) bInactiveThread = true; else return;
         }
 
-        if (!tbDoAtomicCompaction || tbDoAtomicCompaction && !bInactiveThread)
+        if (!tbDoAtomicCompaction || (tbDoAtomicCompaction && !bInactiveThread))
         {
             maskOffset = y_offs * mask2Dstride + x_offs;
 

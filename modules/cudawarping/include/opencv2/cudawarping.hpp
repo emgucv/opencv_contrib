@@ -70,6 +70,8 @@ namespace cv { namespace cuda {
 @param ymap Y values. Only CV_32FC1 type is supported.
 @param interpolation Interpolation method (see resize ). INTER_NEAREST , INTER_LINEAR and
 INTER_CUBIC are supported for now.
+The extra flag WARP_RELATIVE_MAP can be ORed to the interpolation method
+(e.g. INTER_LINEAR | WARP_RELATIVE_MAP)
 @param borderMode Pixel extrapolation method (see borderInterpolate ). BORDER_REFLECT101 ,
 BORDER_REPLICATE , BORDER_CONSTANT , BORDER_REFLECT and BORDER_WRAP are supported for now.
 @param borderValue Value used in case of a constant border. By default, it is 0.
@@ -78,6 +80,10 @@ BORDER_REPLICATE , BORDER_CONSTANT , BORDER_REFLECT and BORDER_WRAP are supporte
 The function transforms the source image using the specified map:
 
 \f[\texttt{dst} (x,y) =  \texttt{src} (xmap(x,y), ymap(x,y))\f]
+
+with the WARP_RELATIVE_MAP flag :
+
+\f[\texttt{dst} (x,y) =  \texttt{src} (x+map_x(x,y),y+map_y(x,y))\f]
 
 Values of pixels with non-integer coordinates are computed using the bilinear interpolation.
 
@@ -99,8 +105,8 @@ Either dsize or both fx and fy must be non-zero.
 \f[\texttt{(double)dsize.width/src.cols}\f]
 @param fy Scale factor along the vertical axis. If it is zero, it is computed as:
 \f[\texttt{(double)dsize.height/src.rows}\f]
-@param interpolation Interpolation method. INTER_NEAREST , INTER_LINEAR and INTER_CUBIC are
-supported for now.
+@param interpolation Interpolation method. INTER_NEAREST , INTER_LINEAR , INTER_CUBIC , and INTER_AREA are
+supported.
 @param stream Stream for the asynchronous version.
 
 @sa resize
@@ -112,6 +118,7 @@ CV_EXPORTS_W void resize(InputArray src, OutputArray dst, Size dsize, double fx=
 @param src Source image. CV_8U , CV_16U , CV_32S , or CV_32F depth and 1, 3, or 4 channels are
 supported.
 @param dst Destination image with the same type as src . The size is dsize .
+    **In-place operation (src == dst) is not supported and will result in an error.**
 @param M *2x3* Mat or UMat transformation matrix.
 @param dsize Size of the destination image.
 @param flags Combination of interpolation methods (see resize) and the optional flag
@@ -121,6 +128,7 @@ INTER_NEAREST , INTER_LINEAR , and INTER_CUBIC interpolation methods are support
 @param borderValue
 @param stream Stream for the asynchronous version.
 
+@note In-place operation is not supported. If src and dst refer to the same data, the behavior is undefined.
 @sa warpAffine
  */
 CV_EXPORTS void warpAffine(InputArray src, OutputArray dst, InputArray M, Size dsize, int flags = INTER_LINEAR,

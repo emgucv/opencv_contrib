@@ -3,10 +3,8 @@
 
 // library includes
 #include <opencv2/imgproc.hpp>
-#include <opencv2/features2d.hpp>
-#include <opencv2/imgproc/types_c.h>
+#include <opencv2/features.hpp>
 #include <opencv2/videoio.hpp>
-#include <opencv2/videoio/videoio_c.h>
 
 #define CVVISUAL_DEBUGMODE
 #include <opencv2/cvv/debug_mode.hpp>
@@ -33,8 +31,6 @@ template<class T> std::string toString(const T& p_arg)
 int
 main(int argc, char** argv)
 {
-  cv::Size* resolution = nullptr;
-
   // parser keys
   const char *keys =
       "{ help h usage ?  |   | show this message }"
@@ -58,8 +54,8 @@ main(int argc, char** argv)
 
   if (res_w>0 && res_h>0) {
     printf("Setting resolution to %dx%d\n", res_w, res_h);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, res_w);
-    capture.set(CV_CAP_PROP_FRAME_HEIGHT, res_h);
+    capture.set(cv::CAP_PROP_FRAME_WIDTH, res_w);
+    capture.set(cv::CAP_PROP_FRAME_HEIGHT, res_h);
   }
 
 

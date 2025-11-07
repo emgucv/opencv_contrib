@@ -47,10 +47,7 @@
 #include "opencv2/imgproc.hpp"
 
 #include "opencv2/core.hpp"
-#include "opencv2/core/core_c.h"
-
 #include "opencv2/core/types.hpp"
-#include "opencv2/core/types_c.h"
 
 namespace cv
 {
@@ -137,9 +134,9 @@ namespace xphoto
     {
         CV_Assert( src.type() == CV_MAKE_TYPE(CV_32F, 3) );
 
-        cv::Matx33f mt(cvInvSqrt(3.0f),  cvInvSqrt(3.0f),       cvInvSqrt(3.0f),
-                       cvInvSqrt(2.0f),  0.0f,                 -cvInvSqrt(2.0f),
-                       cvInvSqrt(6.0f), -2.0f*cvInvSqrt(6.0f),  cvInvSqrt(6.0f));
+        cv::Matx33f mt(pow(3.0f, -0.5f),  pow(3.0f, -0.5f),       pow(3.0f, -0.5f),
+                       pow(2.0f, -0.5f),  0.0f,                 -pow(2.0f, -0.5f),
+                       pow(6.0f, -0.5f), -2.0f*pow(6.0f, -0.5f),  pow(6.0f, -0.5f));
 
         cv::transform(src, dst, mt);
 
@@ -175,7 +172,7 @@ namespace xphoto
         else if ( img.type() == CV_32FC1 )
             grayDctDenoising( img, img, sigma, psize );
         else
-            CV_Error_( CV_StsNotImplemented,
+            CV_Error_( cv::Error::StsNotImplemented,
             ("Unsupported source image format (=%d)", img.type()) );
 
         img.convertTo( dst, src.type() );

@@ -72,8 +72,9 @@ class FFmpegVideoWriter : public EncoderCallback
 public:
     FFmpegVideoWriter(const String& fileName, const Codec codec, const int fps, const Size sz, const int idrPeriod);
     ~FFmpegVideoWriter();
-    void onEncoded(const std::vector<std::vector<uint8_t>>& vPacket);
+    void onEncoded(const std::vector<std::vector<uint8_t>>& vPacket, const std::vector<uint64_t>& pts);
     void onEncodingFinished();
+    bool setFrameIntervalP(const int frameIntervalP);
 private:
     cv::VideoWriter writer;
 };
@@ -81,7 +82,7 @@ private:
 FFmpegVideoWriter::FFmpegVideoWriter(const String& fileName, const Codec codec, const int fps, const Size sz, const int idrPeriod) {
     if (!videoio_registry::hasBackend(CAP_FFMPEG))
         CV_Error(Error::StsNotImplemented, "FFmpeg backend not found");
-    const int fourcc = codec == Codec::H264 ? cv::VideoWriter::fourcc('a', 'v', 'c', '1') : cv::VideoWriter::fourcc('h', 'e', 'v', '1');
+    const int fourcc = codec == Codec::H264 ? cv::VideoWriter::fourcc('a', 'v', 'c', '1') : cv::VideoWriter::fourcc('h', 'v', 'c', '1');
     writer.open(fileName, fourcc, fps, sz, { VideoWriterProperties::VIDEOWRITER_PROP_RAW_VIDEO, 1, VideoWriterProperties::VIDEOWRITER_PROP_KEY_INTERVAL, idrPeriod });
     if (!writer.isOpened())
         CV_Error(Error::StsUnsupportedFormat, "Unsupported video sink");
@@ -95,21 +96,30 @@ FFmpegVideoWriter::~FFmpegVideoWriter() {
     onEncodingFinished();
 }
 
-void FFmpegVideoWriter::onEncoded(const std::vector<std::vector<uint8_t>>& vPacket) {
-    for (auto& packet : vPacket) {
+void FFmpegVideoWriter::onEncoded(const std::vector<std::vector<uint8_t>>& vPacket, const std::vector<uint64_t>& pts) {
+    CV_Assert(vPacket.size() == pts.size());
+    for (int i = 0; i < vPacket.size(); i++){
+        std::vector<uint8_t> packet = vPacket.at(i);
         Mat wrappedPacket(1, packet.size(), CV_8UC1, (void*)packet.data());
+        const double ptsDouble = static_cast<double>(pts.at(i));
+        CV_Assert(static_cast<uint64_t>(ptsDouble) == pts.at(i));
+        CV_Assert(writer.set(VIDEOWRITER_PROP_PTS, ptsDouble));
         writer.write(wrappedPacket);
     }
 }
 
+bool FFmpegVideoWriter::setFrameIntervalP(const int frameIntervalP) {
+    return writer.set(VIDEOWRITER_PROP_DTS_DELAY, static_cast<double>(frameIntervalP - 1));
+}
 
 class RawVideoWriter : public EncoderCallback
 {
 public:
     RawVideoWriter(const String fileName);
     ~RawVideoWriter();
-    void onEncoded(const std::vector<std::vector<uint8_t>>& vPacket);
+    void onEncoded(const std::vector<std::vector<uint8_t>>& vPacket, const std::vector<uint64_t>& pts);
     void onEncodingFinished();
+    bool setFrameIntervalP(const int) { return false;}
 private:
     std::ofstream fpOut;
 };
@@ -128,7 +138,7 @@ RawVideoWriter::~RawVideoWriter() {
     onEncodingFinished();
 }
 
-void RawVideoWriter::onEncoded(const std::vector<std::vector<uint8_t>>& vPacket) {
+void RawVideoWriter::onEncoded(const std::vector<std::vector<uint8_t>>& vPacket, const std::vector<uint64_t>&) {
     for (auto& packet : vPacket)
         fpOut.write(reinterpret_cast<const char*>(packet.data()), packet.size());
 }
@@ -172,6 +182,8 @@ NV_ENC_BUFFER_FORMAT EncBufferFormat(const ColorFormat colorFormat) {
     case ColorFormat::NV_IYUV: return NV_ENC_BUFFER_FORMAT_IYUV;
     case ColorFormat::NV_YUV444: return NV_ENC_BUFFER_FORMAT_YUV444;
     case ColorFormat::NV_AYUV: return NV_ENC_BUFFER_FORMAT_AYUV;
+    case ColorFormat::NV_YUV420_10BIT: return NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+    case ColorFormat::NV_YUV444_10BIT: return NV_ENC_BUFFER_FORMAT_YUV444_10BIT;
     default: return NV_ENC_BUFFER_FORMAT_UNDEFINED;
     }
 }
@@ -179,15 +191,17 @@ NV_ENC_BUFFER_FORMAT EncBufferFormat(const ColorFormat colorFormat) {
 int NChannels(const ColorFormat colorFormat) {
     switch (colorFormat) {
     case ColorFormat::BGR:
-    case ColorFormat::RGB:
-    case ColorFormat::NV_IYUV:
-    case ColorFormat::NV_YUV444: return 3;
+    case ColorFormat::RGB: return 3;
     case ColorFormat::RGBA:
     case ColorFormat::BGRA:
     case ColorFormat::NV_AYUV: return 4;
     case ColorFormat::GRAY:
     case ColorFormat::NV_NV12:
-    case ColorFormat::NV_YV12: return 1;
+    case ColorFormat::NV_IYUV:
+    case ColorFormat::NV_YV12:
+    case ColorFormat::NV_YUV420_10BIT:
+    case ColorFormat::NV_YUV444:
+    case ColorFormat::NV_YUV444_10BIT: return 1;
     default: return 0;
     }
 }
@@ -208,8 +222,9 @@ VideoWriterImpl::VideoWriterImpl(const Ptr<EncoderCallback>& encoderCallBack_, c
 }
 
 void VideoWriterImpl::release() {
-    pEnc->EndEncode(vPacket);
-    encoderCallback->onEncoded(vPacket);
+    std::vector<uint64_t> pts;
+    pEnc->EndEncode(vPacket, pts);
+    encoderCallback->onEncoded(vPacket, pts);
     encoderCallback->onEncodingFinished();
 }
 
@@ -300,6 +315,15 @@ GUID EncodingPresetGuid(const EncodePreset nvPreset) {
     CV_Error(Error::StsUnsupportedFormat, msg);
 }
 
+std::string GetVideoCodecString(const GUID codec) {
+    if (codec == NV_ENC_CODEC_H264_GUID) return "AVC/H.264";
+    else if (codec == NV_ENC_CODEC_HEVC_GUID) return "H.265/HEVC";
+#if (NVENCAPI_MAJOR_VERSION >= 12)
+    else if (codec == NV_ENC_CODEC_AV1_GUID) return "AV1";
+#endif
+    else return "Unknown";
+}
+
 void VideoWriterImpl::InitializeEncoder(const GUID codec, const double fps)
 {
     NV_ENC_INITIALIZE_PARAMS initializeParams = {};
@@ -316,10 +340,27 @@ void VideoWriterImpl::InitializeEncoder(const GUID codec, const double fps)
     initializeParams.encodeConfig->rcParams.maxBitRate = encoderParams.maxBitRate;
     initializeParams.encodeConfig->rcParams.targetQuality = encoderParams.targetQuality;
     initializeParams.encodeConfig->gopLength = encoderParams.gopLength;
-    if (codec == NV_ENC_CODEC_H264_GUID)
+    if (initializeParams.encodeConfig->frameIntervalP > 1) {
+        CV_Assert(encoderCallback->setFrameIntervalP(initializeParams.encodeConfig->frameIntervalP));
+    }
+    if (codec == NV_ENC_CODEC_H264_GUID) {
         initializeParams.encodeConfig->encodeCodecConfig.h264Config.idrPeriod = encoderParams.idrPeriod;
-    else if (codec == NV_ENC_CODEC_HEVC_GUID)
+        if (encoderParams.videoFullRangeFlag) {
+            initializeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag = 1;
+            initializeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
+        }
+    }
+    else if (codec == NV_ENC_CODEC_HEVC_GUID) {
         initializeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = encoderParams.idrPeriod;
+        if (encoderParams.videoFullRangeFlag) {
+            initializeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
+            initializeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag = 1;
+        }
+    }
+    else {
+        std::string msg = "videoFullRangeFlag is not supported by codec: " + GetVideoCodecString(codec);
+        CV_LOG_WARNING(NULL, msg);
+    }
     pEnc->CreateEncoder(&initializeParams);
 }
 
@@ -383,8 +424,9 @@ void VideoWriterImpl::CopyToNvSurface(const InputArray src)
 void VideoWriterImpl::write(const InputArray frame) {
     CV_Assert(frame.channels() == nSrcChannels);
     CopyToNvSurface(frame);
-    pEnc->EncodeFrame(vPacket);
-    encoderCallback->onEncoded(vPacket);
+    std::vector<uint64_t> pts;
+    pEnc->EncodeFrame(vPacket, pts);
+    encoderCallback->onEncoded(vPacket, pts);
 };
 
 EncoderParams VideoWriterImpl::getEncoderParams() const {
@@ -402,13 +444,10 @@ Ptr<VideoWriter> createVideoWriter(const String& fileName, const Size frameSize,
 {
     CV_Assert(params.idrPeriod >= params.gopLength);
     if (!encoderCallback) {
-        // required until PR for raw video encapsulation is merged and windows dll is updated
-#ifndef WIN32 // remove #define and keep code once merged
         try {
             encoderCallback = new FFmpegVideoWriter(fileName, codec, fps, frameSize, params.idrPeriod);
         }
         catch (...)
-#endif
         {
             encoderCallback = new RawVideoWriter(fileName);
         }

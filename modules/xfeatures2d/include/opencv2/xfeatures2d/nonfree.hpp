@@ -43,12 +43,15 @@
 #ifndef __OPENCV_XFEATURES2D_FEATURES_2D_HPP__
 #define __OPENCV_XFEATURES2D_FEATURES_2D_HPP__
 
-#include "opencv2/features2d.hpp"
+#include "opencv2/features.hpp"
 
 namespace cv
 {
 namespace xfeatures2d
 {
+
+//! @addtogroup xfeatures2d_nonfree
+//! @{
 
 /** @brief Class for extracting Speeded Up Robust Features from an image @cite Bay06 .
 

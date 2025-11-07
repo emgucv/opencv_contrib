@@ -1218,9 +1218,10 @@ void EllipseDetectorImpl::getTriplets413(VVP &pi, VVP &pj, VVP &pk,
     }
 }
 
-void EllipseDetectorImpl::preProcessing(Mat1b &image, Mat1b &dp, Mat1b &dn) {
+void EllipseDetectorImpl::preProcessing(Mat1b &src, Mat1b &dp, Mat1b &dn) {
     // smooth image
-    GaussianBlur(image, image, _kernelSize, _sigma);
+    Mat image;
+    GaussianBlur(src, image, _kernelSize, _sigma);
 
     // temp variables
     Mat1b edges;// edge mask
@@ -1300,12 +1301,12 @@ void EllipseDetectorImpl::preProcessing(Mat1b &image, Mat1b &dp, Mat1b &dn) {
     // 2 - the pixel does belong to an edge
     for (int i = 0; i <= imgSize.height; i++) {
         int *tmpMag = magBuffer[(i > 0) + 1] + 1;
-        const short *tmpDx = dx.ptr<short>(i);
-        const short *tmpDy = dy.ptr<short>(i);
         uchar *tmpMap;
         int prevFlag = 0;
 
         if (i < imgSize.height) {
+            const short *tmpDx = dx.ptr<short>(i);
+            const short *tmpDy = dy.ptr<short>(i);
             tmpMag[-1] = tmpMag[imgSize.width] = 0;
             for (int j = 0; j < imgSize.width; j++)
                 tmpMag[j] = abs(tmpDx[j]) + abs(tmpDy[j]);
@@ -1321,8 +1322,8 @@ void EllipseDetectorImpl::preProcessing(Mat1b &image, Mat1b &dp, Mat1b &dn) {
         tmpMap[-1] = tmpMap[imgSize.width] = 1;
 
         tmpMag = magBuffer[1] + 1; // take the central row
-        tmpDx = (short *) (dx[i - 1]);
-        tmpDy = (short *) (dy[i - 1]);
+        const short *tmpDx = dx.ptr<short>(i - 1);
+        const short *tmpDy = dy.ptr<short>(i - 1);
 
         ptrdiff_t magStep1, magStep2;
         magStep1 = magBuffer[2] - magBuffer[1];

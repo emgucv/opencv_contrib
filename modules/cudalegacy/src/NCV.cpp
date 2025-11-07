@@ -42,6 +42,8 @@
 
 #include "precomp.hpp"
 
+#if defined (HAVE_CUDA) && !defined (CUDA_DISABLER)
+
 //==============================================================================
 //
 // Error handling helpers
@@ -737,12 +739,12 @@ struct RectConvert
 
 static void groupRectangles(std::vector<NcvRect32u> &hypotheses, int groupThreshold, double eps, std::vector<Ncv32u> *weights)
 {
-#ifndef HAVE_OPENCV_OBJDETECT
+#ifndef HAVE_OPENCV_XOBJDETECT
     CV_UNUSED(hypotheses);
     CV_UNUSED(groupThreshold);
     CV_UNUSED(eps);
     CV_UNUSED(weights);
-    CV_Error(cv::Error::StsNotImplemented, "This functionality requires objdetect module");
+    CV_Error(cv::Error::StsNotImplemented, "This functionality requires xobjdetect module");
 #else
     std::vector<cv::Rect> rects(hypotheses.size());
     std::transform(hypotheses.begin(), hypotheses.end(), rects.begin(), RectConvert());
@@ -886,3 +888,4 @@ NCVStatus ncvDrawRects_32u_host(Ncv32u *h_dst,
 {
     return drawRectsWrapperHost(h_dst, dstStride, dstWidth, dstHeight, h_rects, numRects, color);
 }
+#endif

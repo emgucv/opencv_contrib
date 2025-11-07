@@ -21,7 +21,7 @@
  ** Vision: Images, Signals and Neural Networks: Models of Neural Processing in Visual Perception (Progress in Neural Processing),By: Jeanny Herault, ISBN: 9814273686. WAPI (Tower ID): 113266891.
  **
  **
- ** This class is based on image processing tools of the author and already used within the Retina class (this is the same code as method retina::applyFastToneMapping, but in an independent class, it is ligth from a memory requirement point of view). It implements an adaptation of the efficient tone mapping algorithm propose by David Alleyson, Sabine Susstruck and Laurence Meylan's work, please cite:
+ ** This class is based on image processing tools of the author and already used within the Retina class (this is the same code as method retina::applyFastToneMapping, but in an independent class, it is light from a memory requirement point of view). It implements an adaptation of the efficient tone mapping algorithm propose by David Alleyson, Sabine Susstruck and Laurence Meylan's work, please cite:
  ** -> Meylan L., Alleysson D., and Susstrunk S., A Model of Retinal Local Adaptation for the Tone Mapping of Color Filter Array Images, Journal of Optical Society of America, A, Vol. 24, N 9, September, 1st, 2007, pp. 2807-2816
  **
  **
@@ -107,7 +107,7 @@ public:
 
         // basic error check
         if (nbPixels <= 0)
-        throw cv::Exception(-1, "Bad retina size setup : size height and with must be superior to zero", "RetinaImpl::setup", "retinafasttonemapping.cpp", 0);
+            CV_Error(cv::Error::StsError, "Bad retina size setup : size height and with must be superior to zero");
 
         // resize buffers
         _inputBuffer.resize(nbPixels*3); // buffer supports gray images but also 3 channels color buffers... (larger is better...)
@@ -222,7 +222,7 @@ bool _convertCvMat2ValarrayBuffer(InputArray inputMat, std::valarray<float> &out
     const Mat inputMatToConvert=inputMat.getMat();
     // first check input consistency
     if (inputMatToConvert.empty())
-        throw cv::Exception(-1, "RetinaImpl cannot be applied, input buffer is empty", "RetinaImpl::run", "RetinaImpl.h", 0);
+        CV_Error(cv::Error::StsError, "RetinaImpl cannot be applied, input buffer is empty");
 
     // retreive color mode from image input
     int imageNumberOfChannels = inputMatToConvert.channels();

@@ -51,6 +51,7 @@
 #include "precomp.hpp"
 #include "opencv2/core/utility.hpp"
 #include <limits>
+#include "opencv2/core/utils/logger.hpp"
 
 namespace cv
 {
@@ -97,6 +98,7 @@ public:
      * @param fgmask Output mask image representing foreground and background pixels
      */
     virtual void apply(InputArray image, OutputArray fgmask, double learningRate=-1.0) CV_OVERRIDE;
+    virtual void apply(InputArray image, InputArray knownForegroundMask, OutputArray fgmask, double learningRate) CV_OVERRIDE;
 
     /**
      * Releases all inner buffers.
@@ -426,8 +428,13 @@ void BackgroundSubtractorGMGImpl::apply(InputArray _frame, OutputArray _fgmask, 
 {
     Mat frame = _frame.getMat();
 
-    CV_Assert(frame.depth() == CV_8U || frame.depth() == CV_16U || frame.depth() == CV_32F);
-    CV_Assert(frame.channels() == 1 || frame.channels() == 3 || frame.channels() == 4);
+    const int depth = frame.depth();
+    CV_CheckDepth(depth, (depth == CV_8U)  || (depth == CV_8S)  ||
+                         (depth == CV_16U) || (depth == CV_16S) ||
+                                              (depth == CV_32S) ||
+                         (depth == CV_32F) || (depth == CV_64F), "Unsupported depth");
+    CV_CheckGE(frame.channels(), 1, "Unsupported channels");
+    CV_CheckLE(frame.channels(), 4, "Unsupported channels");
 
     if (newLearningRate != -1.0)
     {
@@ -441,8 +448,12 @@ void BackgroundSubtractorGMGImpl::apply(InputArray _frame, OutputArray _fgmask, 
         double maxval = maxVal_;
         if( minVal_ == 0 && maxVal_ == 0 )
         {
-            minval = 0;
-            maxval = frame.depth() == CV_8U ? 255.0 : frame.depth() == CV_16U ? std::numeric_limits<ushort>::max() : 1.0;
+            if( depth == CV_8U )        { minval = std::numeric_limits<uint8_t>::min(); maxval = std::numeric_limits<uint8_t>::max(); }
+            else if( depth == CV_8S )   { minval = std::numeric_limits<int8_t>::min();  maxval = std::numeric_limits<int8_t>::max();  }
+            else if( depth == CV_16U )  { minval = std::numeric_limits<uint16_t>::min();maxval = std::numeric_limits<uint16_t>::max();}
+            else if( depth == CV_16S )  { minval = std::numeric_limits<int16_t>::min(); maxval = std::numeric_limits<int16_t>::max(); }
+            else if( depth == CV_32S )  { minval = std::numeric_limits<int32_t>::min(); maxval = std::numeric_limits<int32_t>::max(); }
+            else /* CV_32F or CV_64F */ { minval = 0.0; maxval = 1.0; }
         }
         initialize(frame.size(), minval, maxval);
     }
@@ -462,6 +473,15 @@ void BackgroundSubtractorGMGImpl::apply(InputArray _frame, OutputArray _fgmask, 
 
     // keep track of how many frames we have processed
     ++frameNum_;
+}
+
+void BackgroundSubtractorGMGImpl::apply(InputArray _image, InputArray _knownForegroundMask, OutputArray _fgmask, double newLearningRate){
+    Mat knownForegroundMask = _knownForegroundMask.getMat();
+    if(!_knownForegroundMask.empty())
+    {
+        CV_LOG_WARNING(NULL, "Known Foreground Masking has not been implemented for this specific background subtractor, falling back to subtraction without known foreground");
+    }
+    apply(_image, _fgmask, newLearningRate);
 }
 
 void BackgroundSubtractorGMGImpl::release()

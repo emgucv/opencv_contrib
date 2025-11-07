@@ -44,11 +44,13 @@
 #define OPENCV_CUDALEGACY_HPP
 
 #include "opencv2/core/cuda.hpp"
+#if defined (HAVE_CUDA) && !defined (CUDA_DISABLER)
 #include "opencv2/cudalegacy/NCV.hpp"
 #include "opencv2/cudalegacy/NPP_staging.hpp"
 #include "opencv2/cudalegacy/NCVPyramid.hpp"
 #include "opencv2/cudalegacy/NCVHaarObjectDetection.hpp"
 #include "opencv2/cudalegacy/NCVBroxOpticalFlow.hpp"
+#endif
 #include "opencv2/video/background_segm.hpp"
 
 /**
@@ -90,6 +92,7 @@ class CV_EXPORTS BackgroundSubtractorGMG : public cv::BackgroundSubtractor
 public:
     using cv::BackgroundSubtractor::apply;
     virtual void apply(InputArray image, OutputArray fgmask, double learningRate, Stream& stream) = 0;
+    virtual void apply(InputArray image, InputArray knownForegroundMask, OutputArray fgmask, double learningRate, Stream& stream) = 0;
 
     virtual int getMaxFeatures() const = 0;
     virtual void setMaxFeatures(int maxFeatures) = 0;

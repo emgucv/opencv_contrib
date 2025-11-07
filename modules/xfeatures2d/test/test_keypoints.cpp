@@ -86,7 +86,9 @@ protected:
         {
             const KeyPoint& kp = keypoints[i];
 
-            if(!r.contains(kp.pt))
+            // Workaround for https://github.com/opencv/opencv/issues/26016
+            // To keep its behaviour, kp.pt casts to Point_<int>.
+            if(!r.contains(Point_<int>(kp.pt)))
             {
                 ts->printf(cvtest::TS::LOG, "KeyPoint::pt is out of image (x=%f, y=%f).\n", kp.pt.x, kp.pt.y);
                 ts->set_failed_test_info(cvtest::TS::FAIL_INVALID_OUTPUT);
@@ -141,6 +143,33 @@ TEST(Features2d_Detector_Keypoints_TBMRDetector, validation)
 {
     CV_FeatureDetectorKeypointsTest test(xfeatures2d::TBMR::create());
     test.safe_run();
+}
+
+TEST(Features2d_Detector_Keypoints_BRISK, validation)
+{
+    CV_FeatureDetectorKeypointsTest test(BRISK::create());
+    test.safe_run();
+}
+
+TEST(Features2d_Detector_Keypoints_AGAST, validation)
+{
+    CV_FeatureDetectorKeypointsTest test(AgastFeatureDetector::create());
+    test.safe_run();
+}
+
+TEST(Features2d_Detector_Keypoints_KAZE, validation)
+{
+    CV_FeatureDetectorKeypointsTest test(KAZE::create());
+    test.safe_run();
+}
+
+TEST(Features2d_Detector_Keypoints_AKAZE, validation)
+{
+    CV_FeatureDetectorKeypointsTest test_kaze(AKAZE::create(AKAZE::DESCRIPTOR_KAZE));
+    test_kaze.safe_run();
+
+    CV_FeatureDetectorKeypointsTest test_mldb(AKAZE::create(AKAZE::DESCRIPTOR_MLDB));
+    test_mldb.safe_run();
 }
 
 }} // namespace
