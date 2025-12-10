@@ -49,6 +49,12 @@
 #include "../common.hpp"
 #include "opencv2/core/cuda/cuda_compat.hpp"
 
+#ifdef _MSC_VER
+#ifndef ulong
+typedef unsigned long ulong;
+#endif
+#endif
+
 namespace cv {
 
     using cv::cuda::device::compat::double4;
@@ -90,6 +96,11 @@ template<> struct MakeVec<bool, 1> { typedef uchar  type; };
 template<> struct MakeVec<bool, 2> { typedef uchar2 type; };
 template<> struct MakeVec<bool, 3> { typedef uchar3 type; };
 template<> struct MakeVec<bool, 4> { typedef uchar4 type; };
+
+#ifdef _MSC_VER
+template<> struct MakeVec<int64, 4> { typedef longlong4 type; };
+template<> struct MakeVec<uint64, 4> { typedef ulonglong4 type; };
+#endif
 
 // VecTraits
 
@@ -189,6 +200,26 @@ template<> struct VecTraits<char4>
     __host__ __device__ __forceinline__ static char4 make(schar x, schar y, schar z, schar w) {return make_char4(x, y, z, w);}
     __host__ __device__ __forceinline__ static char4 make(const schar* v) {return make_char4(v[0], v[1], v[2], v[3]);}
 };
+
+#ifdef _MSC_VER
+template<> struct VecTraits<int64_t>
+{
+    typedef int64_t elem_type;
+    enum { cn = 1 };
+    __host__ __device__ __forceinline__ static int64_t all(int64_t v) { return v; }
+    __host__ __device__ __forceinline__ static int64_t make(int64_t x) { return x; }
+    __host__ __device__ __forceinline__ static int64_t make(const int64_t* x) { return *x; }
+};
+
+template<> struct VecTraits<uint64_t>
+{
+    typedef uint64_t elem_type;
+    enum { cn = 1 };
+    __host__ __device__ __forceinline__ static uint64_t all(uint64_t v) { return v; }
+    __host__ __device__ __forceinline__ static uint64_t make(uint64_t x) { return x; }
+    __host__ __device__ __forceinline__ static uint64_t make(const uint64_t* x) { return *x; }
+};
+#endif
 
 //! @}
 
