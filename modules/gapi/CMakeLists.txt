@@ -378,8 +378,14 @@ if(HAVE_GSTREAMER AND OPENCV_GAPI_GSTREAMER)
 endif()
 
 if(WIN32)
-  # Required for htonl/ntohl on Windows
-  ocv_target_link_libraries(${the_module} PRIVATE wsock32 ws2_32)
+  # Required for htonl/ntohl on Windows.
+  # Use .lib suffix for MSVC so CMake emits these as AdditionalDependencies
+  # (not AdditionalOptions with a -l prefix that MSVC linker ignores).
+  if(MSVC)
+    ocv_target_link_libraries(${the_module} PRIVATE wsock32.lib ws2_32.lib)
+  else()
+    ocv_target_link_libraries(${the_module} PRIVATE wsock32 ws2_32)
+  endif()
 endif()
 
 ocv_option(OPENCV_GAPI_MSMF "Build G-API with MS Media Foundation support" HAVE_MSMF)
